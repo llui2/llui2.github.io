@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Langton's Ant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>Langton's Ant</h1>
+
+    <canvas id="antCanvas"></canvas>
+
+    <div class="controls">
+        <button id="startButton">Start</button>
+        <button id="stopButton">Stop</button>
+        <button id="stepButton">Step</button>
+        Speed: <input type="range" id="speedControl" min="1" max="200" value="50">
+        <span id="stepCount">Steps: 0</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

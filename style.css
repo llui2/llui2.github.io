@@ -1,0 +1,33 @@
+body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+    background-color: #f0f0f0;
+}
+
+h1 {
+    color: #333;
+}
+
+canvas {
+    border: 1px solid #333;
+    background-color: white;
+    margin-bottom: 20px;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between control elements */
+}
+
+button {
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+#stepCount {
+    font-weight: bold;
+}
