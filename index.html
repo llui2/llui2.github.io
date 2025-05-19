@@ -3,20 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Langton's Ant</title>
+    <title>Minimal Games Hub</title>
+    <!-- Google Fonts: Roboto (for a modern look) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <canvas id="antCanvas"></canvas>
+    <!-- Main Menu Container -->
+    <div id="mainMenuContainer">
+        <!-- Menu Title Removed -->
+        <div class="menu-buttons">
+            <button id="launchLangtonsAnt" class="menu-button">Langton's Ant</button>
+            <!-- <button class="menu-button" disabled>Future Game</button> -->
+        </div>
+    </div>
 
-    <div class="controls">
-        <button id="startButton">Start</button>
-        <button id="stopButton">Stop</button>
-        <button id="stepButton">Step</button>
-        <label for="speedControl">Speed:</label>
-        <input type="range" id="speedControl" min="1" max="200" value="50">
-        <span id="stepCount">Steps: 0</span>
+    <!-- Langton's Ant Game Container (Initially Hidden) -->
+    <div id="langtonsAntGameContainer" class="game-active-area" style="display: none;">
+        <canvas id="antCanvas"></canvas>
+        <div class="controls" id="langtonsAntControls">
+            <button id="backToMenuButton" title="Back to Main Menu">← Menu</button>
+            <button id="startButton">Start</button>
+            <button id="stopButton">Stop</button>
+            <button id="stepButton">Step</button>
+
+            <label for="numAntsInput">Ants:</label>
+            <input type="number" id="numAntsInput" min="1" value="3">
+
+            <label for="ruleStringInput">Rule:</label>
+            <input type="text" id="ruleStringInput" value="RL" title="Enter rule (R,L,U,N)">
+
+            <button id="randomRuleButton">Random Rule</button>
+
+            <label for="speedControl">Speed:</label>
+            <input type="range" id="speedControl" min="1" max="200" value="50">
+
+            <span id="stepCount">Steps: 0</span>
+        </div>
     </div>
 
     <script src="script.js"></script>
