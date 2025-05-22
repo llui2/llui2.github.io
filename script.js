@@ -300,7 +300,7 @@ const LangtonsAntGame = (function() {
             if (!isInitialized) {
                 cacheDomElements(); // Cache DOM elements first
                 ruleStringInput.value = currentRuleString;
-                numAntsInput.value = "3";
+                numAntsInput.value = "50";
                 generateColorsForRule(currentRuleString.length);
                 if (!setupCanvasAndGrid()) {
                     console.error("Initial setup failed for Langton's Ant.");
