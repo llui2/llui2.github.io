@@ -1,0 +1,8 @@
+.github/instructions
+notes.txt
+structure.txt
+.DS_Store
+.vscode/
+scripts/
+.venv/
+.vscode/

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>write · llui2</title>
+  <link rel="icon" type="image/svg+xml" href="/images/window.svg">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div data-include="/includes/header.html"></div>
+
+  <main>
+    <section class="write-container">
+      <div class="write-editor-col">
+        <div class="write-controls">
+          <label class="write-control">
+            Font size:
+            <input type="range" id="fontSize" min="14" max="26" value="16" step="1">
+            <span id="fontSizeValue">16px</span>
+          </label>
+          <label class="write-control">
+            Font family:
+            <select id="fontFamily">
+              <option value="system">System</option>
+              <option value="serif">Serif</option>
+              <option value="mono">Mono</option>
+            </select>
+          </label>
+        </div>
+        <textarea id="writeEditor" placeholder="Start writing..." aria-label="Text editor"></textarea>
+      </div>
+      <aside class="write-sidebar">
+        <div class="write-stats">
+          <h3>Text Info</h3>
+          <p>Word count: <span id="wordCount">0</span></p>
+          <p>Lexical variety: <span id="lexicalVariety">—</span></p>
+          <p>Avg sentence length: <span id="avgSentenceLength">—</span></p>
+          <p>Max sentence length: <span id="maxSentenceLength">—</span></p>
+        </div>
+        <div class="write-word-info">
+          <h3>Word Info</h3>
+          <p>Total words: <span id="totalWords">0</span></p>
+          <div id="densityContainer">
+            <table id="densityTable">
+              <colgroup>
+                <col class="col-word">
+                <col class="col-density">
+                <col class="col-count">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Word</th>
+                  <th>Density</th>
+                  <th>Count</th>
+                </tr>
+              </thead>
+              <tbody id="densityList" aria-live="polite"></tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div data-include="/includes/footer.html"></div>
+
+  <script src="../script.js"></script>
+  <script src="write.js"></script>
+</body>
+</html>
