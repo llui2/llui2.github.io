@@ -24,6 +24,16 @@ body {
     "Liberation Mono", "Courier New", monospace;
   line-height: 1.5;
   overflow-x: hidden;
+  position: relative;
+}
+
+.random-walk-canvas {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 header,
@@ -31,6 +41,8 @@ main,
 footer {
   max-width: 1040px;
   margin: 0 auto 28px;
+  position: relative;
+  z-index: 1;
 }
 
 .header-split {
