@@ -14,7 +14,7 @@ document.documentElement.classList.add("js");
   document.body.prepend(canvas);
 
   const gridSize = 18;
-  const walkerCount = 6;
+  const walkerCount = 10;
   const trailLength = 50;
   const stepMs = 200;
   const orangeFallback = { r: 255, g: 106, b: 26 };
