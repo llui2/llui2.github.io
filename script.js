@@ -14,7 +14,7 @@ document.documentElement.classList.add("js");
   document.body.prepend(canvas);
 
   const gridSize = 18;
-  const walkerCount = 4;
+  const walkerCount = 6;
   const trailLength = 50;
   const stepMs = 200;
   const orangeFallback = { r: 255, g: 106, b: 26 };
@@ -353,10 +353,24 @@ document.documentElement.classList.add("js");
     let listOpen = false;
     let paragraph = [];
 
+    function renderLink(label, href) {
+      const cleanHref = href.trim();
+      const isExternal = /^https?:\/\//i.test(cleanHref);
+      const externalAttrs = isExternal
+        ? ' target="_blank" rel="noopener noreferrer"'
+        : "";
+
+      return `<a href="${cleanHref}"${externalAttrs}>${label}</a>`;
+    }
+
     function formatInline(text) {
       return text
-        .replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, '[<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>]')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+        .replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, function (_match, label, href) {
+          return `[${renderLink(label, href)}]`;
+        })
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_match, label, href) {
+          return renderLink(label, href);
+        })
         .replace(/`([^`]+)`/g, "<code>$1</code>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");

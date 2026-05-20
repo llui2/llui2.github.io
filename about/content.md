@@ -18,4 +18,4 @@ Departament d'Enginyeria Informàtica i Matemàtiques, Universitat Rovira i Virg
 
 Email: lluis.torres@urv.cat
 
-CV: ![cv.pdf](/cv.pdf)
+CV: available on request.

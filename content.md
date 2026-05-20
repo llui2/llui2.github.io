@@ -1,9 +1,9 @@
-# research 
+# [research](/research/)
 
 
-# open 
+# [open](/open/)
 
 
-# notes
+# [notes](/notes/)
 
 See raw notes in `notes.txt`.
