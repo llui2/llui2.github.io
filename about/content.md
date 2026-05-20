@@ -1,17 +1,21 @@
-# about
+# sites
 
-Short academic biography goes here.
+[Scholar](https://scholar.google.com/citations?user=59EvLz0AAAAJ&hl=en)
 
-# research questions
+# short CV
+
+**PhD Candidate**, Universitat Rovira i Virgili (Present)
+
+**MSc Physics of Complex Systems and Biophysics**, Universitat de Barcelona (2023)
+
+**BSc Physics**, Universitat de Barcelona (2022)
 
 # affiliation
 
-Institution: to be specified.
-
-Department or lab: to be specified.
+Departament d'Enginyeria Informàtica i Matemàtiques, Universitat Rovira i Virgili, Tarragona, Spain
 
 # contact
 
-Email: to be specified.
+Email: lluis.torres@urv.cat
 
-CV: [cv.pdf](/cv.pdf)
+CV: ![cv.pdf](/cv.pdf)

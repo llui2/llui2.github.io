@@ -30,6 +30,63 @@ document.documentElement.classList.add("js");
     return;
   }
 
+  const mathJaxSource =
+    "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+  let mathJaxReady = null;
+
+  function hasTexMath(value) {
+    return /(^|[^\\])\$[^$\n]+\$/.test(value) || /\$\$[\s\S]+?\$\$/.test(value);
+  }
+
+  function ensureMathJax() {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      return Promise.resolve(window.MathJax);
+    }
+
+    if (mathJaxReady) {
+      return mathJaxReady;
+    }
+
+    window.MathJax = window.MathJax || {};
+    window.MathJax.tex = Object.assign({}, window.MathJax.tex, {
+      inlineMath: [["$", "$"], ["\\(", "\\)"]],
+      displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+      processEscapes: true,
+    });
+    window.MathJax.options = Object.assign({}, window.MathJax.options, {
+      skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+    });
+
+    mathJaxReady = new Promise(function (resolve, reject) {
+      const script = document.createElement("script");
+      script.src = mathJaxSource;
+      script.async = true;
+      script.onload = function () {
+        resolve(window.MathJax);
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    return mathJaxReady;
+  }
+
+  function typesetMath(target) {
+    if (!hasTexMath(target.textContent || "")) {
+      return;
+    }
+
+    ensureMathJax()
+      .then(function (MathJax) {
+        if (MathJax.typesetPromise) {
+          return MathJax.typesetPromise([target]);
+        }
+      })
+      .catch(function () {
+        // Markdown remains readable if the math renderer is unavailable.
+      });
+  }
+
   function escapeHtml(value) {
     return value
       .replace(/&/g, "&amp;")
@@ -59,6 +116,8 @@ document.documentElement.classList.add("js");
 
     function formatInline(text) {
       return text
+        .replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, '[<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>]')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
         .replace(/`([^`]+)`/g, "<code>$1</code>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");
@@ -140,6 +199,7 @@ document.documentElement.classList.add("js");
       })
       .then(function (text) {
         target.innerHTML = renderMarkdown(text) || fallback;
+        typesetMath(target);
       })
       .catch(function () {
         target.innerHTML = fallback;

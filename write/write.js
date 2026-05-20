@@ -16,12 +16,10 @@
     fontFamily: "write_fontFamily",
   };
 
-  // Restore saved content and settings
+  // Restore saved settings (not content)
   function loadSettings() {
-    const savedDraft = localStorage.getItem(STORAGE_KEYS.draft);
-    if (savedDraft !== null) {
-      editor.value = savedDraft;
-    }
+    // Clear any saved draft on page load
+    localStorage.removeItem(STORAGE_KEYS.draft);
 
     const savedFontSize = localStorage.getItem(STORAGE_KEYS.fontSize);
     if (savedFontSize !== null) {
@@ -183,15 +181,9 @@
     updateAllStats();
   }
 
-  // Save content to localStorage
-  function saveDraft() {
-    localStorage.setItem(STORAGE_KEYS.draft, editor.value);
-  }
-
   // Event listeners
   editor.addEventListener("input", function () {
     updateWordCount();
-    saveDraft();
   });
 
   fontSizeSlider.addEventListener("input", function () {
