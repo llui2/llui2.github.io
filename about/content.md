@@ -1,6 +1,6 @@
 # sites
 
-[Scholar](https://scholar.google.com/citations?user=59EvLz0AAAAJ&hl=en)
+[Scholar](https://scholar.google.com/citations?user=59EvLz0AAAAJ&hl=en)   [ORCID](https://orcid.org/0009-0003-7941-6278)   [arXiv](https://arxiv.org/a/0009-0003-7941-6278.html)
 
 # short CV
 
