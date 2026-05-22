@@ -373,11 +373,16 @@
     });
     const hit = createElement("circle", {
       class: "research-graph-hit",
+      fill: "transparent",
       r: Math.max(node.radius + 18, 31),
+      stroke: "none",
     });
     const circle = createElement("circle", {
       class: "research-graph-node research-graph-node-" + node.type,
+      fill: "none",
       r: node.radius,
+      stroke: node.type === "paper" ? "#ff6a1a" : "#5a5f73",
+      "stroke-width": "4",
     });
     const labelClass =
       "research-graph-label research-graph-label-" +
@@ -466,6 +471,12 @@
       class: "research-graph-edge",
       "data-source": edge.source.id,
       "data-target": edge.target.id,
+      fill: "none",
+      stroke: "#8f93a6",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      "stroke-opacity": "0.3",
+      "stroke-width": "2.6",
     });
 
     svg.appendChild(path);
@@ -801,6 +812,8 @@
 
   const boundary = createElement("circle", {
     class: "research-graph-boundary",
+    fill: "none",
+    stroke: "transparent",
   });
   svg.appendChild(boundary);
 
