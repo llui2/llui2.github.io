@@ -186,11 +186,16 @@ section {
   padding-bottom: 0;
   margin-bottom: 4px;
   border-bottom: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .research-graph-wrap {
   width: 100%;
   max-width: 100%;
+  overflow: visible;
+  position: relative;
 }
 
 .research-graph {
@@ -324,13 +329,13 @@ section {
 @media (max-width: 700px) {
   .research-graph-section,
   .research-graph-wrap {
-    overflow: hidden;
+    overflow: visible;
   }
 
   .research-graph {
     height: 300px;
     min-height: 280px;
-    overflow: hidden;
+    overflow: visible;
   }
 }
 
