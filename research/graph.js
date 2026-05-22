@@ -355,9 +355,21 @@
       return;
     }
 
+    setLabelVisible(activeNode, false);
     activeNode.element.classList.remove("is-dragging");
     activeNode = null;
     activePointerId = null;
+  }
+
+  function setLabelVisible(node, visible) {
+    if (!node.labelElement || node.type === "paper") {
+      return;
+    }
+
+    node.labelElement.style.opacity = visible ? "1" : "0";
+    node.labelElement.style.pointerEvents = visible ? "all" : "none";
+    node.labelElement.setAttribute("opacity", visible ? "1" : "0");
+    node.labelElement.setAttribute("pointer-events", visible ? "all" : "none");
   }
 
   function renderNode(node) {
@@ -390,6 +402,13 @@
       (node.type === "paper" ? "" : " is-hidden");
     const label = createElement("text", {
       class: labelClass,
+      opacity: node.type === "paper" ? "1" : "0",
+      "pointer-events": node.type === "paper" ? "all" : "none",
+      style:
+        "opacity: " +
+        (node.type === "paper" ? "1" : "0") +
+        "; pointer-events: " +
+        (node.type === "paper" ? "all" : "none"),
     });
     const labelLine = createElement("tspan", { dy: "0" });
     const yearLine = createElement("tspan", {
@@ -422,6 +441,20 @@
         openNode(node);
       }
     });
+    group.addEventListener("pointerenter", function () {
+      setLabelVisible(node, true);
+    });
+    group.addEventListener("pointerleave", function () {
+      if (activeNode !== node) {
+        setLabelVisible(node, false);
+      }
+    });
+    group.addEventListener("focus", function () {
+      setLabelVisible(node, true);
+    });
+    group.addEventListener("blur", function () {
+      setLabelVisible(node, false);
+    });
     group.addEventListener("pointerdown", function (event) {
       event.preventDefault();
       const point = clientPoint(event);
@@ -434,6 +467,7 @@
       node.dragOffsetX = point.x - screen.x;
       node.dragOffsetY = point.y - screen.y;
       group.classList.add("is-dragging");
+      setLabelVisible(node, true);
       if (group.setPointerCapture) {
         group.setPointerCapture(event.pointerId);
       }
@@ -761,7 +795,10 @@
     height = Math.max(rect.height, 300);
     centerX = width / 2;
     centerY = height / 2;
-    diskRadius = Math.max(width * 0.52, height * 1.15);
+    diskRadius =
+      width < 700
+        ? Math.max(width * 0.64, height * 0.76)
+        : Math.max(width * 0.52, height * 1.15);
     svg.setAttribute("viewBox", "0 0 " + width + " " + height);
     boundary.setAttribute("cx", centerX.toFixed(1));
     boundary.setAttribute("cy", centerY.toFixed(1));
