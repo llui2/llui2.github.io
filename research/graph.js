@@ -232,6 +232,25 @@
     return Math.min(Math.max(value, min), max);
   }
 
+  function tanh(value) {
+    if (Math.tanh) {
+      return Math.tanh(value);
+    }
+
+    const positive = Math.exp(value);
+    const negative = Math.exp(-value);
+    return (positive - negative) / (positive + negative);
+  }
+
+  function atanh(value) {
+    if (Math.atanh) {
+      return Math.atanh(value);
+    }
+
+    const bounded = clamp(value, -0.9999, 0.9999);
+    return Math.log((1 + bounded) / (1 - bounded)) / 2;
+  }
+
   function length(point) {
     return Math.sqrt(point.x * point.x + point.y * point.y);
   }
@@ -241,7 +260,7 @@
   }
 
   function hyperbolicPolar(h, theta) {
-    const rho = Math.tanh(h / 2);
+    const rho = tanh(h / 2);
     return {
       x: rho * Math.cos(theta),
       y: rho * Math.sin(theta),
@@ -267,7 +286,7 @@
       return { x: 0, y: 0 };
     }
 
-    const scaled = Math.tanh(t * Math.atanh(clamp(norm, 0, 0.9999))) / norm;
+    const scaled = tanh(t * atanh(clamp(norm, 0, 0.9999))) / norm;
     return {
       x: point.x * scaled,
       y: point.y * scaled,
@@ -279,7 +298,7 @@
   }
 
   function hyperbolicDistance(a, b) {
-    return 2 * Math.atanh(clamp(length(mobiusAdd({ x: -a.x, y: -a.y }, b)), 0, 0.9999));
+    return 2 * atanh(clamp(length(mobiusAdd({ x: -a.x, y: -a.y }, b)), 0, 0.9999));
   }
 
   function constrainToDisk(point) {
@@ -375,8 +394,11 @@
 
     labelLine.textContent = node.label;
     yearLine.textContent = node.year;
-    label.append(labelLine, yearLine);
-    group.append(hit, circle, label);
+    label.appendChild(labelLine);
+    label.appendChild(yearLine);
+    group.appendChild(hit);
+    group.appendChild(circle);
+    group.appendChild(label);
     svg.appendChild(group);
 
     node.element = group;
@@ -407,7 +429,9 @@
       node.dragOffsetX = point.x - screen.x;
       node.dragOffsetY = point.y - screen.y;
       group.classList.add("is-dragging");
-      group.setPointerCapture(event.pointerId);
+      if (group.setPointerCapture) {
+        group.setPointerCapture(event.pointerId);
+      }
     });
     group.addEventListener("pointermove", function (event) {
       if (activeNode !== node) {
@@ -768,7 +792,7 @@
   }
 
   nodes.forEach(function (node) {
-    node.targetRho = Math.tanh(node.h / 2);
+    node.targetRho = tanh(node.h / 2);
     node.position = hyperbolicPolar(node.h, node.theta);
     node.velocity = { x: 0, y: 0 };
     node.force = { x: 0, y: 0 };
