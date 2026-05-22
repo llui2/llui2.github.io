@@ -178,6 +178,145 @@ section {
   color: var(--orange);
 }
 
+.research-page header {
+  margin-bottom: 14px;
+}
+
+.research-graph-section {
+  padding-bottom: 0;
+  margin-bottom: 4px;
+  border-bottom: 0;
+}
+
+.research-graph-wrap {
+  width: 100%;
+}
+
+.research-graph {
+  display: block;
+  width: 100%;
+  height: clamp(300px, 34vw, 440px);
+  background: transparent;
+  overflow: visible;
+  touch-action: none;
+}
+
+.research-graph-link {
+  cursor: grab;
+  outline: none;
+}
+
+.research-graph-link.is-dragging {
+  cursor: grabbing;
+}
+
+.research-graph-edge {
+  fill: none;
+  stroke: rgba(90, 95, 115, 0.3);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.research-graph-boundary {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.research-graph-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.research-graph-node {
+  fill: none;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.research-graph-node-paper {
+  stroke: var(--orange);
+}
+
+.research-graph-node-reference {
+  stroke: var(--dim);
+}
+
+.research-graph-node-topic {
+  stroke: rgba(90, 95, 115, 0.72);
+}
+
+.research-graph-depth-2 .research-graph-node {
+  stroke: rgba(90, 95, 115, 0.62);
+}
+
+.research-graph-depth-3 .research-graph-node {
+  stroke: rgba(90, 95, 115, 0.46);
+}
+
+.research-graph-link:hover .research-graph-node,
+.research-graph-link:focus .research-graph-node {
+  stroke-width: 5;
+}
+
+.research-graph-link:hover .research-graph-label,
+.research-graph-link:focus .research-graph-label {
+  text-decoration: underline;
+}
+
+.research-graph-label {
+  fill: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  opacity: 1;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-linejoin: round;
+  stroke-width: 3;
+  text-anchor: start;
+  pointer-events: all;
+  transition: opacity 120ms ease;
+  user-select: none;
+}
+
+.research-graph-label.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.research-graph-link:hover .research-graph-label.is-hidden,
+.research-graph-link:focus .research-graph-label.is-hidden,
+.research-graph-link.is-dragging .research-graph-label.is-hidden {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.research-graph-label-paper {
+  fill: var(--orange);
+  font-weight: 700;
+}
+
+.research-graph-label-reference {
+  fill: var(--dim);
+  font-size: 11px;
+}
+
+.research-graph-label-topic {
+  fill: var(--dim);
+  font-size: 10px;
+}
+
+.research-graph-year {
+  fill: inherit;
+  font-size: 10px;
+  font-weight: 400;
+}
+
 footer p {
   color: var(--dim);
 }

@@ -10,10 +10,24 @@
   <link rel="apple-touch-icon" href="/images/window2.png">
   <link rel="stylesheet" href="../style.css">
 </head>
-<body>
+<body class="research-page">
   <div data-include="/includes/header.html"></div>
 
   <main>
+    <section class="research-graph-section" aria-label="Research paper graph">
+      <div class="research-graph-wrap">
+        <svg
+          id="researchGraph"
+          class="research-graph"
+          role="img"
+          aria-label="Research paper graph"
+          aria-describedby="researchGraphDesc"
+        >
+          <desc id="researchGraphDesc">Research papers connected to reference papers in a hyperbolic layout.</desc>
+        </svg>
+      </div>
+    </section>
+
     <section>
       <div class="markdown" data-md="content.md" aria-live="polite">
         <h1>preprints</h1>
@@ -34,5 +48,6 @@
   <div data-include="/includes/footer.html"></div>
 
   <script src="../script.js"></script>
+  <script src="graph.js"></script>
 </body>
 </html>
