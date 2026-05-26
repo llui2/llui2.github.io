@@ -330,6 +330,7 @@ document.documentElement.classList.add("js");
   let pageWidth = window.innerWidth;
   let pageHeight = window.innerHeight;
   let pixelRatio = 1;
+  let resizeTimer = null;
   let animationFrame = null;
   let activeSwarm = null;
   let lastFrame = 0;
@@ -351,6 +352,10 @@ document.documentElement.classList.add("js");
 
   window.addEventListener("resize", resizeSwarmCanvas, { passive: true });
   window.addEventListener("load", resizeSwarmCanvas);
+  new MutationObserver(function () {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(resizeSwarmCanvas, 160);
+  }).observe(document.body, { childList: true, subtree: true });
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -436,9 +441,12 @@ document.documentElement.classList.add("js");
   }
 
   function resizeSwarmCanvas() {
+    layer.style.width = "0";
+    layer.style.height = "0";
+    canvas.style.width = "0";
+    canvas.style.height = "0";
+
     pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
-    canvasWidth = window.innerWidth;
-    canvasHeight = window.innerHeight;
     pageWidth = Math.max(
       window.innerWidth,
       document.documentElement.scrollWidth,
@@ -449,8 +457,14 @@ document.documentElement.classList.add("js");
       document.documentElement.scrollHeight,
       document.body.scrollHeight
     );
+    canvasWidth = pageWidth;
+    canvasHeight = pageHeight;
     canvas.width = Math.ceil(canvasWidth * pixelRatio);
     canvas.height = Math.ceil(canvasHeight * pixelRatio);
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
+    layer.style.width = `${canvasWidth}px`;
+    layer.style.height = `${canvasHeight}px`;
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   }
 
@@ -1331,14 +1345,12 @@ document.documentElement.classList.add("js");
           : mix(particle.visualDepth, targetDepth, depthSmoothing);
       const color = depthToBirdColor(depthAmount);
       const perspectiveSize = particle.size * (1.22 - depthAmount * 0.38);
-      const drawX = particle.x - scrollX;
-      const drawY = particle.y - scrollY;
 
       if (
-        drawX < -perspectiveSize ||
-        drawX > canvasWidth + perspectiveSize ||
-        drawY < -perspectiveSize ||
-        drawY > canvasHeight + perspectiveSize
+        particle.x < scrollX - perspectiveSize ||
+        particle.x > scrollX + window.innerWidth + perspectiveSize ||
+        particle.y < scrollY - perspectiveSize ||
+        particle.y > scrollY + window.innerHeight + perspectiveSize
       ) {
         particle.visualDepth = depthAmount;
         continue;
@@ -1348,7 +1360,7 @@ document.documentElement.classList.add("js");
       context.globalAlpha = opacity;
       context.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
       context.beginPath();
-      context.arc(drawX, drawY, perspectiveSize / 2, 0, Math.PI * 2);
+      context.arc(particle.x, particle.y, perspectiveSize / 2, 0, Math.PI * 2);
       context.fill();
     }
 
