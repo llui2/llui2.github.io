@@ -321,10 +321,14 @@ document.documentElement.classList.add("js");
   const pointer = {
     x: 0,
     y: 0,
+    clientX: 0,
+    clientY: 0,
     active: false,
   };
   let canvasWidth = 0;
   let canvasHeight = 0;
+  let pageWidth = window.innerWidth;
+  let pageHeight = window.innerHeight;
   let pixelRatio = 1;
   let animationFrame = null;
   let activeSwarm = null;
@@ -346,6 +350,7 @@ document.documentElement.classList.add("js");
   resizeSwarmCanvas();
 
   window.addEventListener("resize", resizeSwarmCanvas, { passive: true });
+  window.addEventListener("load", resizeSwarmCanvas);
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -418,6 +423,8 @@ document.documentElement.classList.add("js");
         exitHandoffKey,
         JSON.stringify({
           time: Date.now(),
+          scrollX: getScrollX(),
+          scrollY: getScrollY(),
           leader: swarm.leader,
           finalTarget: swarm.finalTarget,
           particles: particles,
@@ -432,6 +439,16 @@ document.documentElement.classList.add("js");
     pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
     canvasWidth = window.innerWidth;
     canvasHeight = window.innerHeight;
+    pageWidth = Math.max(
+      window.innerWidth,
+      document.documentElement.scrollWidth,
+      document.body.scrollWidth
+    );
+    pageHeight = Math.max(
+      window.innerHeight,
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight
+    );
     canvas.width = Math.ceil(canvasWidth * pixelRatio);
     canvas.height = Math.ceil(canvasHeight * pixelRatio);
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
@@ -441,14 +458,42 @@ document.documentElement.classList.add("js");
     context.clearRect(0, 0, canvasWidth, canvasHeight);
   }
 
+  function getScrollX() {
+    return window.scrollX || document.documentElement.scrollLeft || 0;
+  }
+
+  function getScrollY() {
+    return window.scrollY || document.documentElement.scrollTop || 0;
+  }
+
+  function currentViewport() {
+    const left = getScrollX();
+    const top = getScrollY();
+
+    return {
+      left: left,
+      top: top,
+      right: left + window.innerWidth,
+      bottom: top + window.innerHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }
+
   function handlePointerMove(event) {
     if (event.pointerType === "touch") {
       return;
     }
 
-    pointer.x = event.clientX;
-    pointer.y = event.clientY;
+    pointer.clientX = event.clientX;
+    pointer.clientY = event.clientY;
+    syncPointerToPage();
     pointer.active = true;
+  }
+
+  function syncPointerToPage() {
+    pointer.x = pointer.clientX + getScrollX();
+    pointer.y = pointer.clientY + getScrollY();
   }
 
   function clearPointer() {
@@ -502,13 +547,14 @@ document.documentElement.classList.add("js");
   }
 
   function randomEntryPoint() {
+    const viewport = currentViewport();
     const corners = [
-      { x: -entryDistance, y: -entryDistance },
-      { x: window.innerWidth + entryDistance, y: -entryDistance },
-      { x: -entryDistance, y: window.innerHeight + entryDistance },
+      { x: viewport.left - entryDistance, y: viewport.top - entryDistance },
+      { x: viewport.right + entryDistance, y: viewport.top - entryDistance },
+      { x: viewport.left - entryDistance, y: viewport.bottom + entryDistance },
       {
-        x: window.innerWidth + entryDistance,
-        y: window.innerHeight + entryDistance,
+        x: viewport.right + entryDistance,
+        y: viewport.bottom + entryDistance,
       },
     ];
 
@@ -516,16 +562,29 @@ document.documentElement.classList.add("js");
   }
 
   function randomRoamPoint(previous) {
+    const viewport = currentViewport();
     const margin = Math.min(
       Math.max(90, Math.min(window.innerWidth, window.innerHeight) * 0.14),
       170
+    );
+    const minX = clamp(viewport.left + margin, trajectoryMargin, pageWidth);
+    const maxX = clamp(
+      viewport.right - margin,
+      minX,
+      Math.max(minX, pageWidth - trajectoryMargin)
+    );
+    const minY = clamp(viewport.top + margin, trajectoryMargin, pageHeight);
+    const maxY = clamp(
+      viewport.bottom - margin,
+      minY,
+      Math.max(minY, pageHeight - trajectoryMargin)
     );
     let point = null;
 
     for (let attempt = 0; attempt < 8; attempt += 1) {
       point = {
-        x: randomBetween(margin, window.innerWidth - margin),
-        y: randomBetween(margin, window.innerHeight - margin),
+        x: randomBetween(minX, maxX),
+        y: randomBetween(minY, maxY),
         z: randomBetween(-0.82, 0.92),
       };
 
@@ -562,7 +621,7 @@ document.documentElement.classList.add("js");
             normalX * bendAmount +
             tangent.x * tangentSlip,
           trajectoryMargin,
-          window.innerWidth - trajectoryMargin
+          pageWidth - trajectoryMargin
         ),
         y: clamp(
           start.y +
@@ -570,7 +629,7 @@ document.documentElement.classList.add("js");
             normalY * bendAmount +
             tangent.y * tangentSlip,
           trajectoryMargin,
-          window.innerHeight - trajectoryMargin
+          pageHeight - trajectoryMargin
         ),
         z: clamp(
           start.z + (target.z - start.z) * progress + depthAmount,
@@ -641,12 +700,12 @@ document.documentElement.classList.add("js");
     const clampedX = clamp(
       rawX,
       trajectoryMargin,
-      window.innerWidth - trajectoryMargin
+      pageWidth - trajectoryMargin
     );
     const clampedY = clamp(
       rawY,
       trajectoryMargin,
-      window.innerHeight - trajectoryMargin
+      pageHeight - trajectoryMargin
     );
 
     return {
@@ -893,16 +952,30 @@ document.documentElement.classList.add("js");
   }
 
   function startExitHandoff(handoff) {
-    const leader = handoff.leader || {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      z: 0,
-    };
-    const target = handoff.finalTarget || randomRoamPoint(leader);
+    const handoffOffsetX = getScrollX() - (handoff.scrollX || 0);
+    const handoffOffsetY = getScrollY() - (handoff.scrollY || 0);
+    const leader = handoff.leader
+      ? {
+          x: handoff.leader.x + handoffOffsetX,
+          y: handoff.leader.y + handoffOffsetY,
+          z: handoff.leader.z,
+        }
+      : {
+          x: getScrollX() + window.innerWidth / 2,
+          y: getScrollY() + window.innerHeight / 2,
+          z: 0,
+        };
+    const target = handoff.finalTarget
+      ? {
+          x: handoff.finalTarget.x + handoffOffsetX,
+          y: handoff.finalTarget.y + handoffOffsetY,
+          z: handoff.finalTarget.z,
+        }
+      : randomRoamPoint(leader);
     const particles = handoff.particles.map(function (particle) {
       return {
-        x: particle.x,
-        y: particle.y,
+        x: particle.x + handoffOffsetX,
+        y: particle.y + handoffOffsetY,
         z: particle.z,
         vx: particle.vx,
         vy: particle.vy,
@@ -1234,6 +1307,8 @@ document.documentElement.classList.add("js");
       });
     }
 
+    const scrollX = getScrollX();
+    const scrollY = getScrollY();
     const depthRange = updateDepthRange(swarm, dt, frameIndex);
     const depthSmoothing = clamp(0.07 * dt, 0.035, 0.18);
 
@@ -1256,12 +1331,24 @@ document.documentElement.classList.add("js");
           : mix(particle.visualDepth, targetDepth, depthSmoothing);
       const color = depthToBirdColor(depthAmount);
       const perspectiveSize = particle.size * (1.22 - depthAmount * 0.38);
+      const drawX = particle.x - scrollX;
+      const drawY = particle.y - scrollY;
+
+      if (
+        drawX < -perspectiveSize ||
+        drawX > canvasWidth + perspectiveSize ||
+        drawY < -perspectiveSize ||
+        drawY > canvasHeight + perspectiveSize
+      ) {
+        particle.visualDepth = depthAmount;
+        continue;
+      }
 
       particle.visualDepth = depthAmount;
       context.globalAlpha = opacity;
       context.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
       context.beginPath();
-      context.arc(particle.x, particle.y, perspectiveSize / 2, 0, Math.PI * 2);
+      context.arc(drawX, drawY, perspectiveSize / 2, 0, Math.PI * 2);
       context.fill();
     }
 
@@ -1298,6 +1385,10 @@ document.documentElement.classList.add("js");
 
     swarm.leader = target;
     lastFrame = now;
+
+    if (pointer.active) {
+      syncPointerToPage();
+    }
 
     buildParticleGrid(swarm);
 
