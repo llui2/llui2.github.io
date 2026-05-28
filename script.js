@@ -25,6 +25,7 @@ document.documentElement.classList.add("js");
   const walkerCount = 10;
   const trailLength = 50;
   const stepMs = 200;
+  const strokeWidth = 4;
   const orangeFallback = { r: 255, g: 106, b: 26 };
   const directions = [
     [1, 0],
@@ -79,19 +80,22 @@ document.documentElement.classList.add("js");
   }
 
   function gridToPoint(column, row) {
+    const rowHeight = height / rows;
+
     return {
       x: columns <= 1 ? 0 : (column / (columns - 1)) * width,
-      y: rows <= 1 ? 0 : (row / (rows - 1)) * height,
+      y: (row + 0.5) * rowHeight,
     };
   }
 
-  function pushPoint(walker, wrapped) {
+  function pushPoint(walker, wrapX, wrapY) {
     const point = gridToPoint(walker.column, walker.row);
 
     walker.path.push({
       x: point.x,
       y: point.y,
-      wrapped: Boolean(wrapped),
+      wrapX: wrapX || 0,
+      wrapY: wrapY || 0,
     });
 
     if (walker.path.length > trailLength) {
@@ -105,13 +109,12 @@ document.documentElement.classList.add("js");
     const rawRow = walker.row + direction[1];
     const nextColumn = wrapIndex(rawColumn, columns);
     const nextRow = wrapIndex(rawRow, rows);
-    const wrapped =
-      nextColumn !== rawColumn ||
-      nextRow !== rawRow;
+    const wrapX = nextColumn !== rawColumn ? direction[0] : 0;
+    const wrapY = nextRow !== rawRow ? direction[1] : 0;
 
     walker.column = nextColumn;
     walker.row = nextRow;
-    pushPoint(walker, wrapped);
+    pushPoint(walker, wrapX, wrapY);
   }
 
   function createWalker() {
@@ -121,7 +124,7 @@ document.documentElement.classList.add("js");
       path: [],
     };
 
-    pushPoint(walker, false);
+    pushPoint(walker, 0, 0);
 
     for (let index = 1; index < trailLength; index += 1) {
       stepWalker(walker);
@@ -163,13 +166,28 @@ document.documentElement.classList.add("js");
       return;
     }
 
+    const verticalEdgeInset = height / rows / 2;
+
     context.beginPath();
     context.moveTo(walker.path[0].x, walker.path[0].y);
 
     for (let index = 1; index < walker.path.length; index += 1) {
       const point = walker.path[index];
+      const previous = walker.path[index - 1];
 
-      if (point.wrapped) {
+      if (point.wrapY) {
+        const exitY =
+          point.wrapY > 0 ? height + verticalEdgeInset : -verticalEdgeInset;
+        const entryY =
+          point.wrapY > 0 ? -verticalEdgeInset : height + verticalEdgeInset;
+
+        context.lineTo(previous.x, exitY);
+        context.moveTo(point.x, entryY);
+        context.lineTo(point.x, point.y);
+        continue;
+      }
+
+      if (point.wrapX) {
         context.moveTo(point.x, point.y);
         continue;
       }
@@ -183,7 +201,7 @@ document.documentElement.classList.add("js");
   function draw() {
     context.clearRect(0, 0, width, height);
     context.strokeStyle = `rgba(${orange.r}, ${orange.g}, ${orange.b}, 0.2)`;
-    context.lineWidth = 4;
+    context.lineWidth = strokeWidth;
     context.lineJoin = "round";
     context.lineCap = "round";
 
@@ -195,7 +213,7 @@ document.documentElement.classList.add("js");
     const nextWidth = Math.max(gridSize * 2, Math.ceil(size.width));
     const nextHeight = Math.max(gridSize * 2, Math.ceil(size.height));
     const nextColumns = Math.max(2, Math.round(nextWidth / gridSize) + 1);
-    const nextRows = Math.max(2, Math.round(nextHeight / gridSize) + 1);
+    const nextRows = Math.max(2, Math.round(nextHeight / gridSize));
 
     if (
       nextWidth === width &&
@@ -229,7 +247,7 @@ document.documentElement.classList.add("js");
         walker.column = scaleGridIndex(walker.column, previousColumns, columns);
         walker.row = scaleGridIndex(walker.row, previousRows, rows);
         walker.path = [];
-        pushPoint(walker, false);
+        pushPoint(walker, 0, 0);
       });
     }
 
