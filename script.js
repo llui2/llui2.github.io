@@ -27,14 +27,16 @@ document.documentElement.classList.add("js");
   const stepMs = 200;
   const orangeFallback = { r: 255, g: 106, b: 26 };
   const directions = [
-    [gridSize, 0],
-    [-gridSize, 0],
-    [0, gridSize],
-    [0, -gridSize],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
   ];
 
   let width = 1;
   let height = 1;
+  let columns = 2;
+  let rows = 2;
   let dpr = 1;
   let walkers = [];
   let walkTimer = null;
@@ -60,17 +62,37 @@ document.documentElement.classList.add("js");
     return orangeFallback;
   }
 
-  function wrap(value, limit) {
+  function wrapIndex(value, limit) {
     return ((value % limit) + limit) % limit;
   }
 
-  function randomGridPosition(limit) {
-    const cells = Math.max(1, Math.floor(limit / gridSize));
-    return Math.floor(Math.random() * cells) * gridSize;
+  function randomGridIndex(limit) {
+    return Math.floor(Math.random() * limit);
+  }
+
+  function scaleGridIndex(value, previousLimit, nextLimit) {
+    if (previousLimit <= 1 || nextLimit <= 1) {
+      return 0;
+    }
+
+    return Math.round((value / (previousLimit - 1)) * (nextLimit - 1));
+  }
+
+  function gridToPoint(column, row) {
+    return {
+      x: columns <= 1 ? 0 : (column / (columns - 1)) * width,
+      y: rows <= 1 ? 0 : (row / (rows - 1)) * height,
+    };
   }
 
   function pushPoint(walker, wrapped) {
-    walker.path.push({ x: walker.x, y: walker.y, wrapped: Boolean(wrapped) });
+    const point = gridToPoint(walker.column, walker.row);
+
+    walker.path.push({
+      x: point.x,
+      y: point.y,
+      wrapped: Boolean(wrapped),
+    });
 
     if (walker.path.length > trailLength) {
       walker.path.shift();
@@ -79,21 +101,23 @@ document.documentElement.classList.add("js");
 
   function stepWalker(walker) {
     const direction = directions[Math.floor(Math.random() * directions.length)];
-    const nextX = wrap(walker.x + direction[0], width);
-    const nextY = wrap(walker.y + direction[1], height);
+    const rawColumn = walker.column + direction[0];
+    const rawRow = walker.row + direction[1];
+    const nextColumn = wrapIndex(rawColumn, columns);
+    const nextRow = wrapIndex(rawRow, rows);
     const wrapped =
-      Math.abs(nextX - walker.x) > gridSize * 1.5 ||
-      Math.abs(nextY - walker.y) > gridSize * 1.5;
+      nextColumn !== rawColumn ||
+      nextRow !== rawRow;
 
-    walker.x = nextX;
-    walker.y = nextY;
+    walker.column = nextColumn;
+    walker.row = nextRow;
     pushPoint(walker, wrapped);
   }
 
   function createWalker() {
     const walker = {
-      x: randomGridPosition(width),
-      y: randomGridPosition(height),
+      column: randomGridIndex(columns),
+      row: randomGridIndex(rows),
       path: [],
     };
 
@@ -115,11 +139,13 @@ document.documentElement.classList.add("js");
 
     const size = {
       width: Math.max(
+        1,
         window.innerWidth,
         document.documentElement.scrollWidth,
         document.body.scrollWidth
       ),
       height: Math.max(
+        1,
         window.innerHeight,
         document.documentElement.scrollHeight,
         document.body.scrollHeight
@@ -166,21 +192,28 @@ document.documentElement.classList.add("js");
 
   function fitCanvas(resetTrails) {
     const size = measurePage();
-    const nextWidth = Math.max(
-      gridSize * 2,
-      Math.floor(size.width / gridSize) * gridSize
-    );
-    const nextHeight = Math.max(
-      gridSize * 2,
-      Math.floor(size.height / gridSize) * gridSize
-    );
+    const nextWidth = Math.max(gridSize * 2, Math.ceil(size.width));
+    const nextHeight = Math.max(gridSize * 2, Math.ceil(size.height));
+    const nextColumns = Math.max(2, Math.round(nextWidth / gridSize) + 1);
+    const nextRows = Math.max(2, Math.round(nextHeight / gridSize) + 1);
 
-    if (nextWidth === width && nextHeight === height && !resetTrails) {
+    if (
+      nextWidth === width &&
+      nextHeight === height &&
+      nextColumns === columns &&
+      nextRows === rows &&
+      !resetTrails
+    ) {
       return;
     }
 
+    const previousColumns = columns;
+    const previousRows = rows;
+
     width = nextWidth;
     height = nextHeight;
+    columns = nextColumns;
+    rows = nextRows;
     dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     canvas.width = Math.ceil(width * dpr);
@@ -193,8 +226,8 @@ document.documentElement.classList.add("js");
       walkers = Array.from({ length: walkerCount }, createWalker);
     } else {
       walkers.forEach(function (walker) {
-        walker.x = wrap(walker.x, width);
-        walker.y = wrap(walker.y, height);
+        walker.column = scaleGridIndex(walker.column, previousColumns, columns);
+        walker.row = scaleGridIndex(walker.row, previousRows, rows);
         walker.path = [];
         pushPoint(walker, false);
       });
@@ -252,6 +285,11 @@ document.documentElement.classList.add("js");
       queueResize(false);
     }, 120);
   });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", function () {
+      queueResize(false);
+    });
+  }
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {

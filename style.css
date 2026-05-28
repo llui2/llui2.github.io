@@ -4,8 +4,7 @@
   --line: #d7d9ef;
   --orange: #ff6a1a;
   --blue: #2f5cff;
-  --bg: #eef2ff;
-  --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f4f6ff 55%, var(--bg) 100%);
+  --bg: #fff9f5;
 }
 
 * {
@@ -20,10 +19,6 @@ body {
 
 html {
   background-color: var(--bg);
-  background-image: var(--bg-gradient);
-  background-repeat: no-repeat;
-  background-size: 100% 100vh;
-  background-size: 100% 100dvh;
 }
 
 body {
@@ -32,8 +27,6 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--bg);
-  background-image: var(--bg-gradient);
-  background-repeat: no-repeat;
   color: var(--fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
@@ -45,8 +38,8 @@ body {
 .random-walk-canvas {
   position: absolute;
   top: 0;
-  right: 0;
   left: 0;
+  display: block;
   z-index: 0;
   pointer-events: none;
   contain: layout paint style;
