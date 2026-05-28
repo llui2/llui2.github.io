@@ -46,6 +46,12 @@ document.documentElement.classList.add("js");
   let resizeQueued = false;
   const orange = parseOrange();
 
+  try {
+    window.sessionStorage.removeItem("llui2RandomWalkState");
+  } catch (_error) {
+    // Storage can be unavailable in private or locked-down browsing modes.
+  }
+
   function parseOrange() {
     const value = getComputedStyle(document.documentElement)
       .getPropertyValue("--orange")
@@ -71,29 +77,48 @@ document.documentElement.classList.add("js");
     return Math.floor(Math.random() * limit);
   }
 
-  function scaleGridIndex(value, previousLimit, nextLimit) {
-    if (previousLimit <= 1 || nextLimit <= 1) {
+  function clampGridIndex(value, limit) {
+    if (!Number.isFinite(value)) {
       return 0;
     }
 
-    return Math.round((value / (previousLimit - 1)) * (nextLimit - 1));
+    return Math.max(0, Math.min(limit - 1, value));
+  }
+
+  function scaleGridIndex(value, previousLimit, nextLimit) {
+    if (
+      !Number.isFinite(value) ||
+      !Number.isFinite(previousLimit) ||
+      !Number.isFinite(nextLimit) ||
+      previousLimit <= 1 ||
+      nextLimit <= 1
+    ) {
+      return 0;
+    }
+
+    return clampGridIndex(
+      Math.round((value / (previousLimit - 1)) * (nextLimit - 1)),
+      nextLimit
+    );
   }
 
   function gridToPoint(column, row) {
-    const rowHeight = height / rows;
+    const edgeRowInset = gridSize;
+    const rowSpan = Math.max(0, height - edgeRowInset * 2);
 
     return {
       x: columns <= 1 ? 0 : (column / (columns - 1)) * width,
-      y: (row + 0.5) * rowHeight,
+      y:
+        rows <= 1
+          ? edgeRowInset
+          : edgeRowInset + (row / (rows - 1)) * rowSpan,
     };
   }
 
   function pushPoint(walker, wrapX, wrapY) {
-    const point = gridToPoint(walker.column, walker.row);
-
     walker.path.push({
-      x: point.x,
-      y: point.y,
+      column: walker.column,
+      row: walker.row,
       wrapX: wrapX || 0,
       wrapY: wrapY || 0,
     });
@@ -126,11 +151,11 @@ document.documentElement.classList.add("js");
 
     pushPoint(walker, 0, 0);
 
-    for (let index = 1; index < trailLength; index += 1) {
-      stepWalker(walker);
-    }
-
     return walker;
+  }
+
+  function resetWalkers() {
+    walkers = Array.from({ length: walkerCount }, createWalker);
   }
 
   function measurePage() {
@@ -161,25 +186,35 @@ document.documentElement.classList.add("js");
     return size;
   }
 
+  function resetWalkerTrail(walker, previousColumns, previousRows) {
+    walker.column = scaleGridIndex(walker.column, previousColumns, columns);
+    walker.row = scaleGridIndex(walker.row, previousRows, rows);
+    walker.path = [];
+    pushPoint(walker, 0, 0);
+  }
+
   function drawWalker(walker) {
     if (walker.path.length < 2) {
       return;
     }
 
-    const verticalEdgeInset = height / rows / 2;
+    const verticalEdgeInset = gridSize;
+    const firstPoint = gridToPoint(walker.path[0].column, walker.path[0].row);
 
     context.beginPath();
-    context.moveTo(walker.path[0].x, walker.path[0].y);
+    context.moveTo(firstPoint.x, firstPoint.y);
 
     for (let index = 1; index < walker.path.length; index += 1) {
-      const point = walker.path[index];
-      const previous = walker.path[index - 1];
+      const pointData = walker.path[index];
+      const previousData = walker.path[index - 1];
+      const point = gridToPoint(pointData.column, pointData.row);
+      const previous = gridToPoint(previousData.column, previousData.row);
 
-      if (point.wrapY) {
+      if (pointData.wrapY) {
         const exitY =
-          point.wrapY > 0 ? height + verticalEdgeInset : -verticalEdgeInset;
+          pointData.wrapY > 0 ? height + verticalEdgeInset : -verticalEdgeInset;
         const entryY =
-          point.wrapY > 0 ? -verticalEdgeInset : height + verticalEdgeInset;
+          pointData.wrapY > 0 ? -verticalEdgeInset : height + verticalEdgeInset;
 
         context.lineTo(previous.x, exitY);
         context.moveTo(point.x, entryY);
@@ -187,7 +222,7 @@ document.documentElement.classList.add("js");
         continue;
       }
 
-      if (point.wrapX) {
+      if (pointData.wrapX) {
         context.moveTo(point.x, point.y);
         continue;
       }
@@ -213,7 +248,10 @@ document.documentElement.classList.add("js");
     const nextWidth = Math.max(gridSize * 2, Math.ceil(size.width));
     const nextHeight = Math.max(gridSize * 2, Math.ceil(size.height));
     const nextColumns = Math.max(2, Math.round(nextWidth / gridSize) + 1);
-    const nextRows = Math.max(2, Math.round(nextHeight / gridSize));
+    const nextRows = Math.max(
+      2,
+      Math.round(Math.max(gridSize, nextHeight - gridSize * 2) / gridSize) + 1
+    );
 
     if (
       nextWidth === width &&
@@ -241,13 +279,10 @@ document.documentElement.classList.add("js");
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (resetTrails || !walkers.length) {
-      walkers = Array.from({ length: walkerCount }, createWalker);
+      resetWalkers();
     } else {
       walkers.forEach(function (walker) {
-        walker.column = scaleGridIndex(walker.column, previousColumns, columns);
-        walker.row = scaleGridIndex(walker.row, previousRows, rows);
-        walker.path = [];
-        pushPoint(walker, 0, 0);
+        resetWalkerTrail(walker, previousColumns, previousRows);
       });
     }
 
@@ -271,6 +306,11 @@ document.documentElement.classList.add("js");
       window.clearTimeout(walkTimer);
       walkTimer = null;
     }
+  }
+
+  function resetWalkDisplay() {
+    resetWalkers();
+    draw();
   }
 
   function scheduleWalking() {
@@ -316,6 +356,20 @@ document.documentElement.classList.add("js");
     }
 
     queueResize(false);
+    scheduleWalking();
+  });
+
+  window.addEventListener("pagehide", function () {
+    stopWalking();
+    resetWalkDisplay();
+  });
+
+  window.addEventListener("pageshow", function (event) {
+    if (!event.persisted) {
+      return;
+    }
+
+    fitCanvas(true);
     scheduleWalking();
   });
 
