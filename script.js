@@ -282,9 +282,13 @@ document.documentElement.classList.add("js");
     .replace(/\/$/, "");
   const isAboutPage = currentPath === "/about" || currentPath.endsWith("/about");
   const exitHandoffKey = "llui2AboutBirdExit";
-  const exitHandoff = readExitHandoff();
+  const desktopSwarm =
+    window.innerWidth > 700 &&
+    (!window.matchMedia ||
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+  const exitHandoff = desktopSwarm ? readExitHandoff() : clearExitHandoff();
 
-  if (reducedMotion || (!isAboutPage && !exitHandoff)) {
+  if (reducedMotion || !desktopSwarm || (!isAboutPage && !exitHandoff)) {
     return;
   }
 
@@ -402,6 +406,16 @@ document.documentElement.classList.add("js");
     } catch (_error) {
       return null;
     }
+  }
+
+  function clearExitHandoff() {
+    try {
+      window.sessionStorage.removeItem(exitHandoffKey);
+    } catch (_error) {
+      // Storage can be unavailable in private or locked-down browsing modes.
+    }
+
+    return null;
   }
 
   function writeExitHandoff(swarm) {
