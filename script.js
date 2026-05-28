@@ -44,6 +44,7 @@ document.documentElement.classList.add("js");
   let resizeTimer = null;
   let mutationTimer = null;
   let resizeQueued = false;
+  let walkDisplaySuspended = false;
   const orange = parseOrange();
 
   try {
@@ -143,15 +144,11 @@ document.documentElement.classList.add("js");
   }
 
   function createWalker() {
-    const walker = {
+    return {
       column: randomGridIndex(columns),
       row: randomGridIndex(rows),
       path: [],
     };
-
-    pushPoint(walker, 0, 0);
-
-    return walker;
   }
 
   function resetWalkers() {
@@ -190,7 +187,6 @@ document.documentElement.classList.add("js");
     walker.column = scaleGridIndex(walker.column, previousColumns, columns);
     walker.row = scaleGridIndex(walker.row, previousRows, rows);
     walker.path = [];
-    pushPoint(walker, 0, 0);
   }
 
   function drawWalker(walker) {
@@ -244,6 +240,11 @@ document.documentElement.classList.add("js");
   }
 
   function fitCanvas(resetTrails) {
+    if (walkDisplaySuspended) {
+      draw();
+      return;
+    }
+
     const size = measurePage();
     const nextWidth = Math.max(gridSize * 2, Math.ceil(size.width));
     const nextHeight = Math.max(gridSize * 2, Math.ceil(size.height));
@@ -313,8 +314,53 @@ document.documentElement.classList.add("js");
     draw();
   }
 
+  function suspendWalkDisplay() {
+    walkDisplaySuspended = true;
+    canvas.style.visibility = "hidden";
+    stopWalking();
+    resetWalkDisplay();
+  }
+
+  function resumeWalkDisplay(resetTrails) {
+    walkDisplaySuspended = false;
+    canvas.style.visibility = "";
+    fitCanvas(Boolean(resetTrails));
+    scheduleWalking();
+  }
+
+  function normalizedPathname(pathname) {
+    return pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  function shouldSuspendForNavigation(event) {
+    const link = event.target.closest && event.target.closest("a[href]");
+
+    if (
+      !link ||
+      event.defaultPrevented ||
+      ("button" in event && event.button !== 0) ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      link.hasAttribute("download") ||
+      (link.target && link.target.toLowerCase() !== "_self")
+    ) {
+      return false;
+    }
+
+    const url = new URL(link.href, window.location.href);
+
+    return (
+      url.origin !== window.location.origin ||
+      normalizedPathname(url.pathname) !==
+        normalizedPathname(window.location.pathname) ||
+      url.search !== window.location.search
+    );
+  }
+
   function scheduleWalking() {
-    if (walkTimer || document.hidden) {
+    if (walkTimer || document.hidden || walkDisplaySuspended) {
       return;
     }
 
@@ -324,7 +370,7 @@ document.documentElement.classList.add("js");
   function tick() {
     walkTimer = null;
 
-    if (document.hidden) {
+    if (document.hidden || walkDisplaySuspended) {
       return;
     }
 
@@ -333,10 +379,18 @@ document.documentElement.classList.add("js");
     scheduleWalking();
   }
 
+  function beginWalkingAfterLoad() {
+    queueResize(true);
+    scheduleWalking();
+  }
+
   fitCanvas(true);
-  window.addEventListener("load", function () {
-    queueResize(false);
-  });
+  if (document.readyState === "complete") {
+    beginWalkingAfterLoad();
+  } else {
+    window.addEventListener("load", beginWalkingAfterLoad);
+  }
+
   window.addEventListener("resize", function () {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(function () {
@@ -351,17 +405,15 @@ document.documentElement.classList.add("js");
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
-      stopWalking();
+      suspendWalkDisplay();
       return;
     }
 
-    queueResize(false);
-    scheduleWalking();
+    resumeWalkDisplay(true);
   });
 
   window.addEventListener("pagehide", function () {
-    stopWalking();
-    resetWalkDisplay();
+    suspendWalkDisplay();
   });
 
   window.addEventListener("pageshow", function (event) {
@@ -369,18 +421,25 @@ document.documentElement.classList.add("js");
       return;
     }
 
-    fitCanvas(true);
-    scheduleWalking();
+    resumeWalkDisplay(true);
   });
+
+  document.addEventListener(
+    "click",
+    function (event) {
+      if (shouldSuspendForNavigation(event)) {
+        suspendWalkDisplay();
+      }
+    },
+    true
+  );
 
   new MutationObserver(function () {
     window.clearTimeout(mutationTimer);
     mutationTimer = window.setTimeout(function () {
-      queueResize(false);
+      queueResize(true);
     }, 160);
   }).observe(document.body, { childList: true, subtree: true });
-
-  scheduleWalking();
 })();
 
 (function () {
