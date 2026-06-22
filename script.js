@@ -26,7 +26,7 @@ document.documentElement.classList.add("js");
   const trailLength = 50;
   const stepMs = 200;
   const strokeWidth = 4;
-  const orangeFallback = { r: 255, g: 106, b: 26 };
+  const orangeFallback = { r: 252, g: 76, b: 2 };
   const directions = [
     [1, 0],
     [-1, 0],

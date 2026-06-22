@@ -4,7 +4,6 @@
   const fontSizeValue = document.getElementById("fontSizeValue");
   const fontFamilySelect = document.getElementById("fontFamily");
   const wordCountDisplay = document.getElementById("wordCount");
-  const lexicalVarietyDisplay = document.getElementById("lexicalVariety");
   const avgSentenceLengthDisplay = document.getElementById("avgSentenceLength");
   const maxSentenceLengthDisplay = document.getElementById("maxSentenceLength");
   const totalWordsDisplay = document.getElementById("totalWords");
@@ -66,13 +65,6 @@
     return tokenizeWords(text).length;
   }
 
-  // Calculate lexical variety (unique words / total words)
-  function calculateLexicalVariety(words) {
-    if (words.length === 0) return null;
-    const uniqueWords = new Set(words.map(w => w.toLowerCase()));
-    return uniqueWords.size / words.length;
-  }
-
   // Split text into sentences
   function splitSentences(text) {
     if (!text || !text.trim()) return [];
@@ -127,14 +119,6 @@
     // Word count (both displays)
     wordCountDisplay.textContent = wordCount;
     totalWordsDisplay.textContent = wordCount;
-
-    // Lexical variety
-    const variety = calculateLexicalVariety(words);
-    if (variety !== null) {
-      lexicalVarietyDisplay.textContent = variety.toPrecision(2);
-    } else {
-      lexicalVarietyDisplay.textContent = '—';
-    }
 
     // Sentence statistics
     const sentenceStats = calculateSentenceStats(text);
