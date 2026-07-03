@@ -15,19 +15,20 @@
   <div data-include="/includes/header.html"></div>
 
   <main>
-    <section>
-      <div class="markdown" data-md="test.md" aria-live="polite">
-        <h1>Test note</h1>
-        <p>This is a first Markdown note for the <code>/notes</code> page.</p>
-        <h2>What is inside</h2>
-        <ul>
-          <li>Short bullets</li>
-          <li>A bit of <strong>bold</strong></li>
-          <li>A bit of <em>italics</em></li>
-          <li>Inline code like <code>notes/test.md</code></li>
+    <section class="notes-shell">
+      <nav class="notes-sidebar" aria-label="Notes">
+        <ul class="notes-nav" data-notes-list>
+          <li><a href="#pedia" data-note-file="pedia.md">pedia</a></li>
         </ul>
-        <pre><code>Sample code block</code></pre>
-      </div>
+      </nav>
+      <article
+        class="markdown notes-reader"
+        data-notes-reader
+        data-notes-source="notes.json"
+        data-notes-default="pedia.md"
+        aria-live="polite"
+      >
+      </article>
     </section>
   </main>
 

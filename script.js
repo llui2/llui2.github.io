@@ -26,7 +26,7 @@ document.documentElement.classList.add("js");
   const trailLength = 50;
   const stepMs = 200;
   const strokeWidth = 4;
-  const orangeFallback = { r: 252, g: 76, b: 2 };
+  const accentFallback = { r: 252, g: 76, b: 2 };
   const directions = [
     [1, 0],
     [-1, 0],
@@ -45,7 +45,7 @@ document.documentElement.classList.add("js");
   let mutationTimer = null;
   let resizeQueued = false;
   let walkDisplaySuspended = false;
-  const orange = parseOrange();
+  const accent = parseAccent();
 
   try {
     window.sessionStorage.removeItem("llui2RandomWalkState");
@@ -53,9 +53,9 @@ document.documentElement.classList.add("js");
     // Storage can be unavailable in private or locked-down browsing modes.
   }
 
-  function parseOrange() {
+  function parseAccent() {
     const value = getComputedStyle(document.documentElement)
-      .getPropertyValue("--orange")
+      .getPropertyValue("--accent")
       .trim()
       .replace("#", "");
 
@@ -67,7 +67,7 @@ document.documentElement.classList.add("js");
       };
     }
 
-    return orangeFallback;
+    return accentFallback;
   }
 
   function wrapIndex(value, limit) {
@@ -238,7 +238,7 @@ document.documentElement.classList.add("js");
 
   function draw() {
     context.clearRect(0, 0, width, height);
-    context.strokeStyle = `rgba(${orange.r}, ${orange.g}, ${orange.b}, 0.2)`;
+    context.strokeStyle = `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.2)`;
     context.lineWidth = strokeWidth;
     context.lineJoin = "round";
     context.lineCap = "round";
@@ -474,7 +474,8 @@ document.documentElement.classList.add("js");
   }
 
   const targets = document.querySelectorAll("[data-md]");
-  if (!targets.length) {
+  const noteReaders = document.querySelectorAll("[data-notes-reader]");
+  if (!targets.length && !noteReaders.length) {
     return;
   }
 
@@ -577,6 +578,13 @@ document.documentElement.classList.add("js");
         .replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, function (_match, label, href) {
           return `[${renderLink(label, href)}]`;
         })
+        .replace(
+          /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
+          function (_match, target, label) {
+            const slug = slugify(target, "");
+            return slug ? renderLink(label || target, `#${slug}`) : _match;
+          }
+        )
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_match, label, href) {
           return renderLink(label, href);
         })
@@ -647,8 +655,7 @@ document.documentElement.classList.add("js");
     return html;
   }
 
-  function renderTarget(target) {
-    const path = target.getAttribute("data-md");
+  function renderMarkdownInto(target, path) {
     const fallback =
       "<p>Notes failed to load. Check the Markdown file path.</p>";
 
@@ -668,5 +675,188 @@ document.documentElement.classList.add("js");
       });
   }
 
+  function renderTarget(target) {
+    renderMarkdownInto(target, target.getAttribute("data-md"));
+  }
+
+  function safeNoteFile(value) {
+    const file = String(value || "").trim();
+    return /^[a-z0-9._-]+\.md$/i.test(file) ? file : "";
+  }
+
+  function noteTitleFromFile(file) {
+    return file
+      .replace(/\.md$/i, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\b[a-z]/g, function (letter) {
+        return letter.toUpperCase();
+      });
+  }
+
+  function slugify(value, fallback) {
+    const slug = String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\.md$/i, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return slug || fallback;
+  }
+
+  function normalizeNotes(rawNotes) {
+    const usedSlugs = {};
+
+    return rawNotes
+      .map(function (note, index) {
+        const file = safeNoteFile(note && note.file);
+        if (!file) {
+          return null;
+        }
+
+        const title = String(note.title || "").trim() || noteTitleFromFile(file);
+        const baseSlug = slugify(note.slug || file, `note-${index + 1}`);
+        let slug = baseSlug;
+        let slugIndex = 2;
+
+        while (usedSlugs[slug]) {
+          slug = `${baseSlug}-${slugIndex}`;
+          slugIndex += 1;
+        }
+        usedSlugs[slug] = true;
+
+        return {
+          file: file,
+          title: title,
+          slug: slug,
+          showInSidebar: note.sidebar !== false,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function noteFromLocation(notes) {
+    let requested = "";
+    try {
+      requested = decodeURIComponent(window.location.hash.slice(1));
+    } catch (_error) {
+      requested = "";
+    }
+
+    if (!requested) {
+      return null;
+    }
+
+    return (
+      notes.find(function (note) {
+        return note.slug === requested || note.file === requested;
+      }) || null
+    );
+  }
+
+  function renderNotesList(list, notes, activateNote) {
+    if (!list) {
+      return;
+    }
+
+    list.innerHTML = notes
+      .filter(function (note) {
+        return note.showInSidebar;
+      })
+      .map(function (note) {
+        return `<li><a href="#${note.slug}" data-note-file="${escapeHtml(
+          note.file
+        )}">${escapeHtml(note.title)}</a></li>`;
+      })
+      .join("");
+
+    list.querySelectorAll("[data-note-file]").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        const note = notes.find(function (item) {
+          return item.file === link.getAttribute("data-note-file");
+        });
+
+        if (!note) {
+          return;
+        }
+
+        event.preventDefault();
+        activateNote(note, true);
+      });
+    });
+  }
+
+  function markActiveNote(list, activeNote) {
+    if (!list) {
+      return;
+    }
+
+    list.querySelectorAll("[data-note-file]").forEach(function (link) {
+      const isActive = link.getAttribute("data-note-file") === activeNote.file;
+      if (isActive) {
+        link.setAttribute("aria-current", "page");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  function renderNotesReader(reader) {
+    const source = reader.getAttribute("data-notes-source") || "notes.json";
+    const defaultFile = safeNoteFile(reader.getAttribute("data-notes-default"));
+    const list = document.querySelector("[data-notes-list]");
+    let notes = [];
+    let activeNote = null;
+
+    function activateNote(note, updateHash) {
+      activeNote = note;
+      renderMarkdownInto(reader, note.file);
+      markActiveNote(list, note);
+
+      if (updateHash && window.location.hash.slice(1) !== note.slug) {
+        window.history.pushState(null, "", `#${note.slug}`);
+      }
+    }
+
+    fetch(source)
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Failed to load notes index");
+        }
+        return response.json();
+      })
+      .then(function (rawNotes) {
+        notes = normalizeNotes(Array.isArray(rawNotes) ? rawNotes : []);
+        if (!notes.length) {
+          throw new Error("Notes index is empty");
+        }
+
+        renderNotesList(list, notes, activateNote);
+
+        const selected =
+          noteFromLocation(notes) ||
+          notes.find(function (note) {
+            return note.file === defaultFile;
+          }) ||
+          notes[0];
+
+        activateNote(selected, false);
+
+        window.addEventListener("hashchange", function () {
+          const requested = noteFromLocation(notes);
+          if (requested && (!activeNote || requested.file !== activeNote.file)) {
+            activateNote(requested, false);
+          }
+        });
+      })
+      .catch(function () {
+        if (defaultFile) {
+          renderMarkdownInto(reader, defaultFile);
+        }
+      });
+  }
+
   targets.forEach(renderTarget);
+  noteReaders.forEach(renderNotesReader);
 })();

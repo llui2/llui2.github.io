@@ -15,6 +15,15 @@
     fontFamily: "write_fontFamily",
   };
 
+  function updateRangeProgress() {
+    const min = Number(fontSizeSlider.min);
+    const max = Number(fontSizeSlider.max);
+    const value = Number(fontSizeSlider.value);
+    const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
+
+    fontSizeSlider.style.setProperty("--range-progress", progress + "%");
+  }
+
   // Restore saved settings (not content)
   function loadSettings() {
     // Clear any saved draft on page load
@@ -28,6 +37,8 @@
     } else {
       editor.style.fontSize = "16px";
     }
+
+    updateRangeProgress();
 
     const savedFontFamily = localStorage.getItem(STORAGE_KEYS.fontFamily);
     if (savedFontFamily !== null) {
@@ -174,6 +185,7 @@
     const size = fontSizeSlider.value;
     fontSizeValue.textContent = size + "px";
     editor.style.fontSize = size + "px";
+    updateRangeProgress();
     localStorage.setItem(STORAGE_KEYS.fontSize, size);
   });
 
