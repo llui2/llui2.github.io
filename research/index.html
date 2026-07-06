@@ -9,7 +9,7 @@
   <link rel="canonical" href="https://llui2.github.io/research/">
   <link rel="icon" type="image/png" href="/images/window.png">
   <link rel="apple-touch-icon" href="/images/window.png">
-  <link rel="stylesheet" href="../style.css?v=20260522-safari4">
+  <link rel="stylesheet" href="../style.css?v=20260706-3">
 </head>
 <body class="research-page">
   <div data-include="/includes/header.html"></div>
@@ -33,11 +33,89 @@
       </div>
     </section>
 
-    <section>
-      <div class="markdown" data-md="content.md" aria-live="polite">
+    <section class="research-publications research-preprints">
+      <div class="markdown" data-md="publications/preprints.md" aria-live="polite">
         <h1>preprints</h1>
         <p><a href="https://arxiv.org/abs/2604.19682" target="_blank" rel="noopener noreferrer"><strong>Cycle holonomy captures higher-order compatibility constraints in remote synchronization</strong></a>, arXiv preprint, April 2026.</p>
         <p>[<a href="https://arxiv.org/abs/2604.19682" target="_blank" rel="noopener noreferrer">arXiv:2604.19682</a>] [<a href="https://github.com/llui2/twisted-laplacian" target="_blank" rel="noopener noreferrer">llui2/twisted-laplacian</a>]</p>
+      </div>
+    </section>
+
+    <section
+      class="research-simulation"
+      data-holonomy-simulation
+      aria-label="Remote synchronization simulation"
+    >
+      <div class="research-simulation-heading">
+        <img
+          class="research-simulation-equation"
+          src="projects/cycle-holonomy/equation.svg"
+          alt="phi dot i equals kappa times the sum over neighbors j of sine of phi j minus phi i minus alpha"
+        >
+      </div>
+
+      <div class="research-alpha-control">
+        <span class="research-alpha-track">
+          <input
+            id="holonomyAlpha"
+            type="range"
+            min="0"
+            max="1.0664"
+            step="0.0001"
+            value="0.45"
+            aria-label="Phase lag alpha"
+          >
+          <span class="research-alpha-marker is-pi-nine" aria-hidden="true"></span>
+          <span class="research-alpha-marker is-two-pi-nine" aria-hidden="true"></span>
+          <span class="research-alpha-marker is-alpha-c" aria-hidden="true">
+            <span class="research-alpha-marker-label">α<sub>c</sub></span>
+          </span>
+          <span class="research-alpha-marker is-alpha-pi" aria-hidden="true">
+            <span class="research-alpha-marker-label">α<sub>π</sub></span>
+          </span>
+        </span>
+        <div class="research-alpha-scale" aria-hidden="true">
+          <span class="is-zero">0</span>
+          <span class="is-pi-nine">π/9</span>
+          <span class="is-two-pi-nine">2π/9</span>
+        </div>
+      </div>
+
+      <div class="research-simulation-grid">
+        <figure class="research-simulation-panel">
+          <canvas
+            class="holonomy-motif-canvas"
+            width="560"
+            height="420"
+            role="img"
+            aria-label="Oscillator phases evolving in the laboratory frame"
+          ></canvas>
+          <figcaption class="research-simulation-actions">
+            <button type="button" data-simulation-shuffle>shuffle phases</button>
+          </figcaption>
+        </figure>
+        <figure class="research-simulation-panel">
+          <canvas
+            class="holonomy-plot-canvas"
+            width="560"
+            height="420"
+            role="img"
+            aria-label="Distance from the synch branch over time"
+          ></canvas>
+          <figcaption class="research-simulation-legend">
+            <span class="is-remote">distance from synch branch</span>
+          </figcaption>
+        </figure>
+      </div>
+
+      <p class="research-simulation-explanation">
+        synch branch · full synchronization at α = 0 → phase-locked states as α increases
+      </p>
+
+    </section>
+
+    <section class="research-publications">
+      <div class="markdown" data-md="publications/articles.md" aria-live="polite">
         <h1>journal articles</h1>
         <p><a href="https://doi.org/10.1038/s42005-025-02403-8" target="_blank" rel="noopener noreferrer"><strong>Indirect influence on network diffusion</strong></a>, <em>Communications Physics</em>, Volume 8, Article 494, December 2025.</p>
         <p>[<a href="https://arxiv.org/abs/2505.05931" target="_blank" rel="noopener noreferrer">arXiv:2505.05931</a>] [<a href="https://github.com/llui2/indirect-diffusion" target="_blank" rel="noopener noreferrer">llui2/indirect-diffusion</a>]</p>
@@ -50,6 +128,7 @@
   <div data-include="/includes/footer.html"></div>
 
   <script src="../script.js"></script>
-  <script src="graph.js?v=20260522-safari4"></script>
+  <script src="assets/research-graph.js?v=20260703-2"></script>
+  <script src="projects/cycle-holonomy/simulation.js?v=20260706-18"></script>
 </body>
 </html>

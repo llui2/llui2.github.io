@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   const svg = document.getElementById("researchGraph");
 
   if (!svg) {
@@ -366,10 +368,7 @@
       return;
     }
 
-    node.labelElement.style.opacity = visible ? "1" : "0";
-    node.labelElement.style.pointerEvents = visible ? "all" : "none";
-    node.labelElement.setAttribute("opacity", visible ? "1" : "0");
-    node.labelElement.setAttribute("pointer-events", visible ? "all" : "none");
+    node.labelElement.classList.toggle("is-hidden", !visible);
   }
 
   function renderNode(node) {
@@ -402,13 +401,6 @@
       (node.type === "paper" ? "" : " is-hidden");
     const label = createElement("text", {
       class: labelClass,
-      opacity: node.type === "paper" ? "1" : "0",
-      "pointer-events": node.type === "paper" ? "all" : "none",
-      style:
-        "opacity: " +
-        (node.type === "paper" ? "1" : "0") +
-        "; pointer-events: " +
-        (node.type === "paper" ? "all" : "none"),
     });
     const labelLine = createElement("tspan", { dy: "0" });
     const yearLine = createElement("tspan", {
@@ -647,8 +639,8 @@
 
   function labelSize(node) {
     return {
-      width: Math.max(node.label.length * 7.3, node.year.length * 6.2) + 4,
-      height: 28,
+      width: Math.max(node.label.length * 7.8, node.year.length * 6.8) + 4,
+      height: 30,
     };
   }
 
