@@ -258,7 +258,7 @@ section {
 .research-graph-link {
   cursor: grab;
   outline: none;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .research-graph-link.is-dragging {

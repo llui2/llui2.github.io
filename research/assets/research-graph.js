@@ -385,7 +385,7 @@
     const hit = createElement("circle", {
       class: "research-graph-hit",
       fill: "transparent",
-      r: Math.max(node.radius + 18, 31),
+      r: Math.max(node.radius + 12, 22),
       stroke: "none",
     });
     const circle = createElement("circle", {
@@ -448,10 +448,6 @@
       setLabelVisible(node, false);
     });
     group.addEventListener("pointerdown", function (event) {
-      if (event.pointerType === "touch") {
-        return;
-      }
-
       event.preventDefault();
       const point = clientPoint(event);
       const screen = diskToScreen(node.position);
