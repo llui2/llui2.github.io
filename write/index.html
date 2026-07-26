@@ -33,42 +33,44 @@
           </label>
         </div>
         <textarea id="writeEditor" placeholder="Start writing..." aria-label="Text editor"></textarea>
-      </div>
-      <aside class="write-sidebar">
-        <div class="write-stats">
-          <h3>Text Info</h3>
-          <p>Word count: <span id="wordCount">0</span></p>
-          <p>Avg sentence length: <span id="avgSentenceLength">—</span></p>
-          <p>Max sentence length: <span id="maxSentenceLength">—</span></p>
+        <div class="write-word-count" aria-live="polite">
+          <span id="wordCount">0</span>
+          <span id="wordCountLabel" class="write-word-count-label">words</span>
         </div>
-        <div class="write-word-info">
-          <h3>Word Info</h3>
-          <p>Total words: <span id="totalWords">0</span></p>
+      </div>
+
+      <div class="write-analysis">
+        <section class="write-zipf" aria-label="Word frequency rank plot">
+          <div class="zipf-chart-wrap">
+            <canvas id="zipfChart" role="img" aria-label="Word frequency rank plot"></canvas>
+            <div id="zipfTooltip" class="zipf-tooltip" hidden></div>
+          </div>
+        </section>
+
+        <section class="write-word-info" aria-label="Word information">
+          <div class="density-table-header" aria-hidden="true">
+            <span>Word</span>
+            <span>Rank</span>
+            <span>Frequency</span>
+          </div>
           <div id="densityContainer">
-            <table id="densityTable">
+            <table id="densityTable" aria-label="Word frequencies with word, rank, and frequency columns">
               <colgroup>
                 <col class="col-word">
-                <col class="col-density">
+                <col class="col-rank">
                 <col class="col-count">
               </colgroup>
-              <thead>
-                <tr>
-                  <th>Word</th>
-                  <th>Density</th>
-                  <th>Count</th>
-                </tr>
-              </thead>
               <tbody id="densityList" aria-live="polite"></tbody>
             </table>
           </div>
-        </div>
-      </aside>
+        </section>
+      </div>
     </section>
   </main>
 
   <div data-include="/includes/footer.html"></div>
 
   <script src="../script.js"></script>
-  <script src="write.js"></script>
+  <script src="write.js?v=20260723-1"></script>
 </body>
 </html>
