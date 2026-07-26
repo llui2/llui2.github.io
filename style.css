@@ -252,12 +252,13 @@ section {
   min-height: 300px;
   background: transparent;
   overflow: visible;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .research-graph-link {
   cursor: grab;
   outline: none;
+  touch-action: pan-y;
 }
 
 .research-graph-link.is-dragging {
@@ -324,6 +325,7 @@ section {
 }
 
 .research-graph-label {
+  cursor: pointer;
   fill: var(--fg);
   font-family: inherit;
   font-size: 13px;
@@ -618,23 +620,22 @@ section {
   text-align: center;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .research-graph-section,
   .research-graph-wrap {
     overflow: visible;
   }
 
   .research-graph {
-    height: 300px;
-    min-height: 280px;
+    height: clamp(360px, 52vw, 420px);
+    min-height: 360px;
     overflow: visible;
   }
 
   .research-simulation-grid {
-    grid-template-columns: minmax(0, 371px);
+    grid-template-columns: minmax(0, 560px);
     justify-content: center;
   }
-
 }
 
 footer p {
@@ -850,21 +851,6 @@ footer p {
   scrollbar-gutter: stable;
 }
 
-.density-table-header {
-  display: grid;
-  grid-template-columns: 54% 16% 30%;
-  padding: 6px 20px 8px 0;
-  border-bottom: 1px solid var(--line);
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.density-table-header span:nth-child(2),
-.density-table-header span:nth-child(3) {
-  text-align: right;
-}
-
 #densityTable {
   width: 100%;
   table-layout: fixed;
@@ -882,6 +868,30 @@ footer p {
 
 #densityTable colgroup .col-count {
   width: 30%;
+}
+
+#densityTable thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+
+#densityTable th {
+  padding: 6px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+#densityTable th:first-child {
+  text-align: left;
+}
+
+#densityTable th:nth-child(2),
+#densityTable th:nth-child(3) {
+  text-align: right;
 }
 
 #densityTable tbody tr {
@@ -923,7 +933,7 @@ footer p {
   text-align: center;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .write-analysis {
     grid-template-columns: minmax(0, 1fr);
     width: min(100%, 680px);

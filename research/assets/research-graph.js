@@ -414,8 +414,8 @@
     label.appendChild(yearLine);
     group.appendChild(hit);
     group.appendChild(circle);
-    group.appendChild(label);
-    svg.appendChild(group);
+    nodeLayer.appendChild(group);
+    labelLayer.appendChild(label);
 
     node.element = group;
     node.labelElement = label;
@@ -448,6 +448,10 @@
       setLabelVisible(node, false);
     });
     group.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "touch") {
+        return;
+      }
+
       event.preventDefault();
       const point = clientPoint(event);
       const screen = diskToScreen(node.position);
@@ -490,6 +494,18 @@
     group.addEventListener("pointerup", releaseDrag);
     group.addEventListener("pointercancel", releaseDrag);
     group.addEventListener("lostpointercapture", releaseDrag);
+
+    label.addEventListener("click", function () {
+      openNode(node);
+    });
+    label.addEventListener("pointerenter", function () {
+      setLabelVisible(node, true);
+    });
+    label.addEventListener("pointerleave", function () {
+      if (activeNode !== node) {
+        setLabelVisible(node, false);
+      }
+    });
   }
 
   function renderEdge(edge) {
@@ -668,6 +684,18 @@
 
   function chooseLabelPositions() {
     const placed = [];
+    const nodeBounds = nodes.map(function (node) {
+      const screen = diskToScreen(node.position);
+      const clearance = node.radius + 8;
+
+      return {
+        node: node,
+        left: screen.x - clearance,
+        top: screen.y - clearance,
+        right: screen.x + clearance,
+        bottom: screen.y + clearance,
+      };
+    });
     const order = nodes.slice().sort(function (a, b) {
       return a.type === b.type ? 0 : a.type === "paper" ? -1 : 1;
     });
@@ -693,7 +721,10 @@
         const overlap = placed.reduce(function (sum, other) {
           return sum + overlapArea(rect, other);
         }, 0);
-        const score = outside * 30 + overlap * 3 + index;
+        const nodeOverlap = nodeBounds.reduce(function (sum, bounds) {
+          return bounds.node === node ? sum : sum + overlapArea(rect, bounds);
+        }, 0);
+        const score = outside * 30 + overlap * 6 + nodeOverlap * 40 + index;
 
         if (score < bestScore) {
           bestScore = score;
@@ -811,6 +842,10 @@
         "transform",
         "translate(" + screen.x.toFixed(1) + " " + screen.y.toFixed(1) + ")"
       );
+      node.labelElement.setAttribute(
+        "transform",
+        "translate(" + screen.x.toFixed(1) + " " + screen.y.toFixed(1) + ")"
+      );
       node.labelElement.setAttribute("x", node.labelX.toFixed(1));
       node.labelElement.setAttribute("y", node.labelY.toFixed(1));
       node.labelLine.setAttribute("x", node.labelX.toFixed(1));
@@ -857,6 +892,15 @@
     graphEdge.element = renderEdge(graphEdge);
     return graphEdge;
   });
+
+  const nodeLayer = createElement("g", {
+    class: "research-graph-node-layer",
+  });
+  const labelLayer = createElement("g", {
+    class: "research-graph-label-layer",
+  });
+  svg.appendChild(nodeLayer);
+  svg.appendChild(labelLayer);
 
   nodes.forEach(renderNode);
   resize();

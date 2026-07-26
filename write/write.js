@@ -110,8 +110,8 @@
   function drawZipfChart(items) {
     const context = zipfChart.getContext("2d");
     const bounds = zipfChart.getBoundingClientRect();
-    const width = Math.max(280, bounds.width);
-    const height = Math.max(260, bounds.height);
+    const width = Math.max(1, bounds.width);
+    const height = Math.max(1, bounds.height);
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
     zipfChart.width = Math.round(width * pixelRatio);
@@ -125,7 +125,10 @@
     const foreground = style.getPropertyValue("--fg").trim();
     const dim = style.getPropertyValue("--dim").trim();
     const accent = style.getPropertyValue("--accent").trim();
-    const padding = { top: 22, right: 18, bottom: 54, left: 62 };
+    const compact = width < 320;
+    const padding = compact
+      ? { top: 16, right: 12, bottom: 48, left: 52 }
+      : { top: 22, right: 18, bottom: 54, left: 62 };
     const axisLength = Math.min(
       width - padding.left - padding.right,
       height - padding.top - padding.bottom
@@ -137,7 +140,9 @@
     const xPosition = rank => plotLeft + (Math.log10(rank) / rankExponent) * axisLength;
     const yPosition = count => plotTop + axisLength - (Math.log10(count) / frequencyExponent) * axisLength;
 
-    context.font = '11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+    context.font =
+      (compact ? "10px " : "11px ") +
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
     context.lineWidth = 1;
 
     context.strokeStyle = foreground;
