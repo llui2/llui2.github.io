@@ -1,12 +1,19 @@
+// Research graph notes:
+// This file builds the interactive paper map inside the SVG on the research
+// page. Each circle is a link to a paper or reference. Nodes move in a
+// hyperbolic disk, labels avoid one another, and pointer actions allow opening
+// or dragging a node.
 (function () {
   "use strict";
 
+  // The script is also loaded on pages without the graph, so return there.
   const svg = document.getElementById("researchGraph");
 
   if (!svg) {
     return;
   }
 
+  // These values control drawing, dragging, and the speed of the layout.
   const svgNs = "http://www.w3.org/2000/svg";
   const edgeGap = 2.5;
   const dragThreshold = 4;
@@ -17,6 +24,13 @@
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // Node data:
+  // id = the name used to connect this node in the edge list.
+  // type = paper, reference, or topic; label/year/href are shown or opened.
+  // h = distance from the disk center in the graph's curved geometry.
+  // theta = angle around the center, in radians.
+  // radius = circle size in SVG pixels; depth = link distance from a main paper.
+  // Paper nodes are the main works, while references/topics lead to related work.
   const nodes = [
     {
       id: "cycle",
@@ -195,6 +209,8 @@
       depth: 2,
     },
   ];
+  // Edge data:
+  // source/target = the connected node ids; distance = their preferred curved-space distance.
   const edges = [
     { source: "cycle", target: "remote", distance: 0.82 },
     { source: "remote", target: "remote-analysis", distance: 0.7 },
@@ -213,6 +229,7 @@
     { source: "gomez", target: "diffusive-behavior", distance: 0.88 },
   ];
 
+  // These values are updated whenever the SVG changes size or a node moves.
   const nodesById = {};
   let width = 1;
   let height = 1;
@@ -223,6 +240,7 @@
   let activePointerId = null;
 
   function createElement(name, attributes) {
+    // SVG elements need the SVG namespace; this helper also applies attributes.
     const element = document.createElementNS(svgNs, name);
     Object.keys(attributes || {}).forEach(function (key) {
       element.setAttribute(key, attributes[key]);
@@ -231,10 +249,12 @@
   }
 
   function clamp(value, min, max) {
+    // Keep a number inside the supplied interval.
     return Math.min(Math.max(value, min), max);
   }
 
   function tanh(value) {
+    // Hyperbolic tangent, with a fallback for older browsers.
     if (Math.tanh) {
       return Math.tanh(value);
     }
@@ -245,6 +265,7 @@
   }
 
   function atanh(value) {
+    // Inverse hyperbolic tangent, used to move between disk coordinates.
     if (Math.atanh) {
       return Math.atanh(value);
     }
@@ -254,14 +275,17 @@
   }
 
   function length(point) {
+    // Distance from the disk center to a point.
     return Math.sqrt(point.x * point.x + point.y * point.y);
   }
 
   function dot(a, b) {
+    // Small vector helper used by the disk geometry.
     return a.x * b.x + a.y * b.y;
   }
 
   function hyperbolicPolar(h, theta) {
+    // Convert a radius/angle pair into a point inside the hyperbolic disk.
     const rho = tanh(h / 2);
     return {
       x: rho * Math.cos(theta),
@@ -270,6 +294,8 @@
   }
 
   function mobiusAdd(a, b) {
+    // The disk's version of adding two points. It keeps curved-space movement
+    // inside the disk instead of treating the graph as an ordinary flat plane.
     const aa = dot(a, a);
     const bb = dot(b, b);
     const ab = dot(a, b);
@@ -282,6 +308,7 @@
   }
 
   function mobiusScale(t, point) {
+    // Move a disk point by a fraction t along its curved radial direction.
     const norm = length(point);
 
     if (norm < 0.00001) {
@@ -296,14 +323,17 @@
   }
 
   function geodesicLerp(a, b, t) {
+    // Find a point t of the way along the curved shortest path between a and b.
     return mobiusAdd(a, mobiusScale(t, mobiusAdd({ x: -a.x, y: -a.y }, b)));
   }
 
   function hyperbolicDistance(a, b) {
+    // Measure separation in the same curved geometry used by the graph layout.
     return 2 * atanh(clamp(length(mobiusAdd({ x: -a.x, y: -a.y }, b)), 0, 0.9999));
   }
 
   function constrainToDisk(point) {
+    // Prevent dragging or motion from pushing a node outside the visible disk.
     const pointLength = length(point);
 
     if (pointLength <= maxDiskRadius) {
@@ -317,6 +347,7 @@
   }
 
   function diskToScreen(point) {
+    // Convert normalized disk coordinates into SVG pixels.
     return {
       x: centerX + point.x * diskRadius,
       y: centerY + point.y * diskRadius,
@@ -324,6 +355,7 @@
   }
 
   function screenToDisk(point) {
+    // Convert SVG pixels back into normalized disk coordinates for dragging.
     return constrainToDisk({
       x: (point.x - centerX) / diskRadius,
       y: (point.y - centerY) / diskRadius,
@@ -331,6 +363,7 @@
   }
 
   function clientPoint(event) {
+    // Pointer coordinates are in the browser window; convert them into SVG space.
     const point = svg.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -338,10 +371,12 @@
   }
 
   function openNode(node) {
+    // Open the paper or reference in a new tab while keeping this graph open.
     window.open(node.href, "_blank", "noopener,noreferrer");
   }
 
   function outsideDragRange(event) {
+    // Allow a drag to finish if the pointer briefly leaves the SVG.
     const rect = svg.getBoundingClientRect();
 
     return (
@@ -353,25 +388,62 @@
   }
 
   function releaseDrag() {
+    // Clear the drag state and hide labels that are not paper labels.
     if (!activeNode) {
       return;
     }
 
-    setLabelVisible(activeNode, false);
-    activeNode.element.classList.remove("is-dragging");
+    const releasedNode = activeNode;
+    if (!releasedNode.nodeHovered && !releasedNode.labelHovered && !releasedNode.focused) {
+      setLabelVisible(releasedNode, false);
+    }
+    releasedNode.element.classList.remove("is-dragging");
     activeNode = null;
     activePointerId = null;
+    updateNodeInteraction(releasedNode);
   }
 
   function setLabelVisible(node, visible) {
+    // Paper labels are always visible; other labels appear while their node is used.
     if (!node.labelElement || node.type === "paper") {
       return;
     }
 
+    if (node.labelHideTimer) {
+      window.clearTimeout(node.labelHideTimer);
+      node.labelHideTimer = null;
+    }
     node.labelElement.classList.toggle("is-hidden", !visible);
   }
 
+  function scheduleLabelHide(node) {
+    // Give the pointer time to move from a node to its separately layered label.
+    if (node.type === "paper" || node.labelHideTimer) {
+      return;
+    }
+
+    node.labelHideTimer = window.setTimeout(function () {
+      node.labelHideTimer = null;
+      if (!node.nodeHovered && !node.labelHovered && !node.focused && activeNode !== node) {
+        setLabelVisible(node, false);
+      }
+    }, 80);
+  }
+
+  function updateNodeInteraction(node) {
+    // The node and label live in separate SVG layers, so mirror one shared
+    // active state onto both elements for hover, focus, and dragging.
+    const active =
+      node.nodeHovered || node.labelHovered || node.focused || activeNode === node;
+
+    node.element.classList.toggle("is-active", active);
+    node.labelElement.classList.toggle("is-active", active);
+    node.labelVisual.classList.toggle("is-active", active);
+  }
+
   function renderNode(node) {
+    // Build one interactive node: a large invisible hit area, visible circle,
+    // and text label. Labels live in their own layer so they stay above edges.
     const group = createElement("g", {
       class:
         "research-graph-link research-graph-link-" +
@@ -395,6 +467,7 @@
       stroke: node.type === "paper" ? "#ff6a1a" : "#5a5f73",
       "stroke-width": "4",
     });
+    // References and topics start hidden and are revealed on hover/focus.
     const labelClass =
       "research-graph-label research-graph-label-" +
       node.type +
@@ -402,26 +475,58 @@
     const label = createElement("text", {
       class: labelClass,
     });
-    const labelLine = createElement("tspan", { dy: "0" });
+    const labelHalo = createElement("text", {
+      class:
+        "research-graph-label research-graph-label-" +
+        node.type +
+        " research-graph-label-halo",
+      "aria-hidden": "true",
+    });
+    const labelVisual = createElement("g", {
+      class: "research-graph-label-visual",
+    });
+    const labelLine = createElement("tspan", {
+      class: "research-graph-label-line",
+      dy: "0",
+    });
     const yearLine = createElement("tspan", {
+      class: "research-graph-year",
+      dy: "1.35em",
+    });
+    const haloLine = createElement("tspan", {
+      class: "research-graph-label-line",
+      dy: "0",
+    });
+    const haloYearLine = createElement("tspan", {
       class: "research-graph-year",
       dy: "1.35em",
     });
 
     labelLine.textContent = node.label;
     yearLine.textContent = node.year;
+    haloLine.textContent = node.label;
+    haloYearLine.textContent = node.year;
     label.appendChild(labelLine);
     label.appendChild(yearLine);
+    labelHalo.appendChild(haloLine);
+    labelHalo.appendChild(haloYearLine);
     group.appendChild(hit);
     group.appendChild(circle);
     nodeLayer.appendChild(group);
-    labelLayer.appendChild(label);
+    labelVisual.appendChild(labelHalo);
+    labelVisual.appendChild(label);
+    labelLayer.appendChild(labelVisual);
 
     node.element = group;
     node.labelElement = label;
+    node.labelHalo = labelHalo;
+    node.labelVisual = labelVisual;
     node.labelLine = labelLine;
+    node.haloLine = haloLine;
     node.yearLine = yearLine;
+    node.haloYearLine = haloYearLine;
 
+    // Clicking or using Enter/Space follows the node's external link.
     group.addEventListener("click", function () {
       if (!node.dragged) {
         openNode(node);
@@ -433,20 +538,31 @@
         openNode(node);
       }
     });
+    // Hover/focus also reveals secondary labels and gives visual feedback.
     group.addEventListener("pointerenter", function () {
+      node.nodeHovered = true;
+      updateNodeInteraction(node);
       setLabelVisible(node, true);
     });
     group.addEventListener("pointerleave", function () {
+      node.nodeHovered = false;
+      updateNodeInteraction(node);
       if (activeNode !== node) {
-        setLabelVisible(node, false);
+        scheduleLabelHide(node);
       }
     });
     group.addEventListener("focus", function () {
+      node.focused = true;
+      updateNodeInteraction(node);
       setLabelVisible(node, true);
     });
     group.addEventListener("blur", function () {
-      setLabelVisible(node, false);
+      node.focused = false;
+      updateNodeInteraction(node);
+      scheduleLabelHide(node);
     });
+    // A pointer press starts dragging. The offset keeps the node under the
+    // same point of the pointer instead of snapping its center to the pointer.
     group.addEventListener("pointerdown", function (event) {
       event.preventDefault();
       const point = clientPoint(event);
@@ -459,11 +575,13 @@
       node.dragOffsetX = point.x - screen.x;
       node.dragOffsetY = point.y - screen.y;
       group.classList.add("is-dragging");
+      updateNodeInteraction(node);
       setLabelVisible(node, true);
       if (group.setPointerCapture) {
         group.setPointerCapture(event.pointerId);
       }
     });
+    // Move only the active node; the next draw shows the new position.
     group.addEventListener("pointermove", function (event) {
       if (activeNode !== node) {
         return;
@@ -491,20 +609,27 @@
     group.addEventListener("pointercancel", releaseDrag);
     group.addEventListener("lostpointercapture", releaseDrag);
 
+    // Labels are outside the node group for layering, so they need their own
+    // click and hover handlers.
     label.addEventListener("click", function () {
       openNode(node);
     });
     label.addEventListener("pointerenter", function () {
+      node.labelHovered = true;
+      updateNodeInteraction(node);
       setLabelVisible(node, true);
     });
     label.addEventListener("pointerleave", function () {
+      node.labelHovered = false;
+      updateNodeInteraction(node);
       if (activeNode !== node) {
-        setLabelVisible(node, false);
+        scheduleLabelHide(node);
       }
     });
   }
 
   function renderEdge(edge) {
+    // Draw a curved-space connection as an SVG path between two nodes.
     const path = createElement("path", {
       class: "research-graph-edge",
       "data-source": edge.source.id,
@@ -522,6 +647,7 @@
   }
 
   function addForce(node, force) {
+    // Accumulate layout pressure unless the user is currently dragging this node.
     if (node === activeNode) {
       return;
     }
@@ -531,6 +657,7 @@
   }
 
   function applyRadialForces() {
+    // Pull each node toward the distance from the center specified by its data.
     nodes.forEach(function (node) {
       const rho = length(node.position);
       const target = node.targetRho;
@@ -545,6 +672,8 @@
   }
 
   function applyEdgeForces() {
+    // Connected nodes are pushed or pulled until their graph distance is close
+    // to the preferred edge distance.
     edgeElements.forEach(function (edge) {
       const source = edge.source;
       const target = edge.target;
@@ -567,6 +696,7 @@
   }
 
   function applySeparationForces() {
+    // Push labels/nodes apart. Important paper nodes receive more room.
     for (let a = 0; a < nodes.length; a += 1) {
       for (let b = a + 1; b < nodes.length; b += 1) {
         const first = nodes[a];
@@ -608,6 +738,7 @@
   }
 
   function applyViewportForces() {
+    // Nudge nodes away from the SVG edges.
     const padding = 28;
 
     nodes.forEach(function (node) {
@@ -635,6 +766,7 @@
   }
 
   function moveNodes() {
+    // Turn accumulated forces into capped movement and reduce the previous speed.
     nodes.forEach(function (node) {
       if (node === activeNode) {
         return;
@@ -650,6 +782,7 @@
   }
 
   function labelSize(node) {
+    // Estimate text size before placing labels; this avoids browser measurement.
     return {
       width: Math.max(node.label.length * 7.8, node.year.length * 6.8) + 4,
       height: 30,
@@ -657,12 +790,14 @@
   }
 
   function overlapArea(a, b) {
+    // Return how much two rectangular label areas cover the same space.
     const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
     const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
     return x * y;
   }
 
   function labelCandidates(node, screen, size) {
+    // Offer positions around a node; chooseLabelPositions scores these later.
     const gap = node.radius + 14;
     const outwardX = screen.x >= centerX ? gap : -size.width - gap;
     const outwardY = screen.y >= centerY ? 14 : -size.height - 8;
@@ -679,6 +814,7 @@
   }
 
   function chooseLabelPositions() {
+    // Pick the least crowded candidate position for every label.
     const placed = [];
     const nodeBounds = nodes.map(function (node) {
       const screen = diskToScreen(node.position);
@@ -735,6 +871,7 @@
   }
 
   function edgePath(edge) {
+    // Sample the curved path into short SVG line segments and stop at node edges.
     const source = edge.source;
     const target = edge.target;
     const sourceScreen = diskToScreen(source.position);
@@ -763,6 +900,7 @@
   }
 
   function clippedStartT(source, target, sourceScreen) {
+    // Binary search for where the edge should leave the source circle.
     let low = 0;
     let high = 1;
     const targetDistance = source.radius + edgeGap;
@@ -786,6 +924,7 @@
   }
 
   function clippedEndT(source, target, targetScreen) {
+    // Binary search for where the edge should enter the target circle.
     let low = 0;
     let high = 1;
     const targetDistance = target.radius + edgeGap;
@@ -809,6 +948,7 @@
   }
 
   function resize() {
+    // Recalculate the disk when the browser changes size, then redraw everything.
     const rect = svg.getBoundingClientRect();
     width = Math.max(rect.width, 320);
     height = Math.max(rect.height, 300);
@@ -826,6 +966,8 @@
   }
 
   function draw() {
+    // One complete visual refresh: labels first determine positions, then edges
+    // and nodes are moved to their current screen coordinates.
     chooseLabelPositions();
 
     edgeElements.forEach(function (edge) {
@@ -834,22 +976,29 @@
 
     nodes.forEach(function (node) {
       const screen = diskToScreen(node.position);
+      const labelX = node.labelX;
+      const labelY = node.labelY;
       node.element.setAttribute(
         "transform",
         "translate(" + screen.x.toFixed(1) + " " + screen.y.toFixed(1) + ")"
       );
-      node.labelElement.setAttribute(
+      node.labelVisual.setAttribute(
         "transform",
         "translate(" + screen.x.toFixed(1) + " " + screen.y.toFixed(1) + ")"
       );
-      node.labelElement.setAttribute("x", node.labelX.toFixed(1));
-      node.labelElement.setAttribute("y", node.labelY.toFixed(1));
-      node.labelLine.setAttribute("x", node.labelX.toFixed(1));
-      node.yearLine.setAttribute("x", node.labelX.toFixed(1));
+      node.labelElement.setAttribute("x", labelX.toFixed(1));
+      node.labelElement.setAttribute("y", labelY.toFixed(1));
+      node.labelHalo.setAttribute("x", labelX.toFixed(1));
+      node.labelHalo.setAttribute("y", labelY.toFixed(1));
+      node.labelLine.setAttribute("x", labelX.toFixed(1));
+      node.yearLine.setAttribute("x", labelX.toFixed(1));
+      node.haloLine.setAttribute("x", labelX.toFixed(1));
+      node.haloYearLine.setAttribute("x", labelX.toFixed(1));
     });
   }
 
   function tick() {
+    // One animation step: clear forces, apply layout rules, move, and schedule next.
     nodes.forEach(function (node) {
       node.force = { x: 0, y: 0 };
     });
@@ -862,14 +1011,20 @@
     window.requestAnimationFrame(tick);
   }
 
+  // Prepare each node's initial disk position and empty motion state.
   nodes.forEach(function (node) {
     node.targetRho = tanh(node.h / 2);
     node.position = hyperbolicPolar(node.h, node.theta);
     node.velocity = { x: 0, y: 0 };
     node.force = { x: 0, y: 0 };
+    node.nodeHovered = false;
+    node.labelHovered = false;
+    node.focused = false;
+    node.labelHideTimer = null;
     nodesById[node.id] = node;
   });
 
+  // The boundary is visual/structural only; it marks the disk's outer limit.
   const boundary = createElement("circle", {
     class: "research-graph-boundary",
     fill: "none",
@@ -877,6 +1032,7 @@
   });
   svg.appendChild(boundary);
 
+  // Turn the simple edge data into objects that also hold their SVG path.
   const edgeElements = edges.map(function (edge) {
     const graphEdge = {
       source: nodesById[edge.source],
@@ -889,6 +1045,7 @@
     return graphEdge;
   });
 
+  // Keep circles and labels in separate layers so labels can sit above edges.
   const nodeLayer = createElement("g", {
     class: "research-graph-node-layer",
   });
@@ -898,6 +1055,7 @@
   svg.appendChild(nodeLayer);
   svg.appendChild(labelLayer);
 
+  // Build the graph, size it once, then keep it responsive and draggable.
   nodes.forEach(renderNode);
   resize();
   window.addEventListener("resize", resize);

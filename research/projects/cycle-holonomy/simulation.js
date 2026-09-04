@@ -1,11 +1,18 @@
+// Cycle-holonomy simulation notes:
+// This page shows seven coupled oscillators on two connected motifs. The top
+// canvas shows their phases around the nodes; the lower canvas tracks how far
+// the evolving state moves from a reference solution. The slider changes alpha,
+// and the shuffle button starts from a random state.
 (function () {
   "use strict";
 
+  // This script is also loaded on pages without the simulation.
   const root = document.querySelector("[data-holonomy-simulation]");
   if (!root) {
     return;
   }
 
+  // Find the controls and the two drawing surfaces inside this simulation only.
   const alphaInput = root.querySelector("#holonomyAlpha");
   const shuffleButton = root.querySelector("[data-simulation-shuffle]");
   const motifCanvas = root.querySelector(".holonomy-motif-canvas");
@@ -22,6 +29,9 @@
     return;
   }
 
+  // Model/display settings. alpha is the phase-lag value controlled by the slider.
+  // criticalAlpha is the transition value discussed on the page; the other
+  // values control the initial disturbance and plot.
   const criticalAlpha = 1.0164;
   const initialPerturbation = 1e-5;
   const twoPi = Math.PI * 2;
@@ -29,6 +39,7 @@
   const sampleInterval = 0.15;
   const maxHistorySamples = Math.ceil((timeWindow + 1) / sampleInterval) + 3;
   const plotMax = 2;
+  // The graph has a triangle sharing one node with a five-node cycle.
   const edges = [
     [0, 1],
     [1, 2],
@@ -39,6 +50,7 @@
     [5, 6],
     [6, 0],
   ];
+  // Convert the edge list into a neighbor list so each node knows who affects it.
   const neighbors = Array.from({ length: 7 }, function () {
     return [];
   });
@@ -48,6 +60,9 @@
     neighbors[edge[1]].push(edge[0]);
   });
 
+  // Live simulation state:
+  // phases = the seven node angles; referencePhases = the balanced comparison state.
+  // history = recorded plot samples; time/sampleClock track simulation progress.
   let phases = [];
   let referencePhases = [];
   let history = [];
@@ -58,6 +73,7 @@
   let frameRequest = 0;
 
   function cssColor(name, fallback) {
+    // Read a site color from CSS, using the fallback if it is missing.
     const value = getComputedStyle(document.documentElement)
       .getPropertyValue(name)
       .trim();
@@ -65,6 +81,7 @@
   }
 
   function resizeCanvas(canvas, context) {
+    // Match the drawing buffer to the displayed size, including high-DPI screens.
     const bounds = canvas.getBoundingClientRect();
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(1, Math.round(bounds.width * ratio));
@@ -80,10 +97,14 @@
   }
 
   function wrapPhase(value) {
+    // Keep an angle in the interval from -pi to pi.
     return ((value + Math.PI) % twoPi + twoPi) % twoPi - Math.PI;
   }
 
   function lockedBranch(alpha) {
+    // Find the balanced/reference phases for the chosen alpha. We move through
+    // smaller alpha values and use Newton's method at each step so the solution
+    // follows the same branch instead of jumping to a different solution.
     const continuationSteps = Math.max(1, Math.ceil(alpha / 0.01));
     let x = 0;
     let y = 0;
@@ -91,6 +112,7 @@
     for (let step = 1; step <= continuationSteps; step += 1) {
       const currentAlpha = (alpha * step) / continuationSteps;
 
+      // Apply twelve Newton updates at each continuation step.
       for (let iteration = 0; iteration < 12; iteration += 1) {
         const f1 =
           Math.sin(y + currentAlpha) -
@@ -106,6 +128,7 @@
         const j21 =
           2 * Math.cos(x - currentAlpha) + Math.cos(x + currentAlpha);
         const j22 = 2 * Math.cos(y - currentAlpha);
+        // The Jacobian describes how the two equations change with x and y.
         const determinant = j11 * j22 - j12 * j21;
 
         if (Math.abs(determinant) < 1e-12) {
@@ -127,6 +150,8 @@
   }
 
   function resetSimulation() {
+    // Rebuild the reference state, add the tiny transverse disturbance, and
+    // clear the time series whenever the simulation starts over.
     const alpha = Number(alphaInput.value);
     updateReferenceBranch(alpha);
     phases = referencePhases.slice();
@@ -140,6 +165,7 @@
   }
 
   function updateReferenceBranch(alpha) {
+    // The two independent phase values x and y determine the seven-node pattern.
     const branch = lockedBranch(alpha);
     referencePhases = [
       0,
@@ -153,6 +179,7 @@
   }
 
   function seedTransverseMode() {
+    // Add a small disturbance in the mode that becomes visible near critical alpha.
     const xi1 = initialPerturbation;
     // Unstable pentagonal eigenvector at alpha_c: xi2 / xi1 ≈ 0.309.
     const xi2 = 0.309 * xi1;
@@ -164,6 +191,7 @@
   }
 
   function derivatives(values, alpha) {
+    // Return each oscillator's instantaneous angular velocity from its neighbors.
     return values.map(function (phase, node) {
       return neighbors[node].reduce(function (velocity, neighbor) {
         return velocity + Math.sin(values[neighbor] - phase - alpha);
@@ -172,6 +200,7 @@
   }
 
   function integrate(alpha, dt) {
+    // Advance the ODE with RK4, using four estimates per step.
     const k1 = derivatives(phases, alpha);
     const middle = phases.map(function (phase, index) {
       return phase + k1[index] * dt * 0.5;
@@ -197,6 +226,8 @@
   }
 
   function branchResiduals() {
+    // Compare the live phases with the reference while ignoring one shared
+    // rotation of all phases (which does not change the relative pattern).
     const offsets = phases.map(function (phase, index) {
       return wrapPhase(phase - referencePhases[index]);
     });
@@ -214,6 +245,7 @@
   }
 
   function branchDeviation() {
+    // Reduce the residuals to one RMS distance for the lower plot.
     const residuals = branchResiduals();
     const squaredDistance = residuals.reduce(function (sum, residual) {
       return sum + residual * residual;
@@ -223,6 +255,7 @@
   }
 
   function recordSample() {
+    // Save one plot point and discard samples older than the visible time window.
     const deviation = branchDeviation();
     history.push({
       time: time,
@@ -239,6 +272,7 @@
   }
 
   function nodePositions(width, height) {
+    // Place the shared triangle and five-cycle motif in the upper canvas.
     const padding = 30;
     const availableHeight = Math.max(1, height - padding * 2);
     const side = Math.min(width * 0.3, availableHeight / 2.55);
@@ -275,11 +309,13 @@
   }
 
   function phaseColor(phase) {
+    // Map an angle to a color around the hue circle.
     const hue = (((phase / twoPi) * 360) % 360 + 360) % 360;
     return "hsl(" + hue.toFixed(1) + " 94% 62%)";
   }
 
   function drawMotif() {
+    // Draw graph edges and a colored marker at each node's phase angle.
     const size = resizeCanvas(motifCanvas, motifContext);
     const positions = nodePositions(size.width, size.height);
     const structureColor = "#a8d9bd";
@@ -297,6 +333,7 @@
       const distance = Math.hypot(dx, dy) || 1;
       const unitX = dx / distance;
       const unitY = dy / distance;
+      // Larger phase mismatch makes the connecting edge more visible.
       const mismatch = Math.abs(
         Math.sin((phases[edge[1]] - phases[edge[0]] - alpha) * 0.5)
       );
@@ -336,6 +373,7 @@
   }
 
   function drawSeries(values, color, bounds, startTime) {
+    // Draw one clipped line series from time/value samples.
     if (values.length < 2) {
       return;
     }
@@ -371,6 +409,7 @@
   }
 
   function drawPlot() {
+    // Draw axes, labels, and the deviation history below the oscillator motif.
     const size = resizeCanvas(plotCanvas, plotContext);
     const accent = cssColor("--accent", "#fc4c02");
     const foreground = cssColor("--fg", "#0f1222");
@@ -408,6 +447,7 @@
     plotContext.lineWidth = 1;
     plotContext.stroke();
 
+    // Include the current state so the line reaches the live animation frame.
     const plotSamples = history.slice();
     const latestSample = plotSamples[plotSamples.length - 1];
     if (!latestSample || latestSample.time < time) {
@@ -435,16 +475,18 @@
     plotContext.save();
     plotContext.translate(10, (bounds.top + bounds.bottom) * 0.5);
     plotContext.rotate(-Math.PI / 2);
-    plotContext.fillText("distance from synch branch", 0, 0);
+    plotContext.fillText("distance from reference branch", 0, 0);
     plotContext.restore();
   }
 
   function draw() {
+    // Redraw both canvases from the current simulation state.
     drawMotif();
     drawPlot();
   }
 
   function updateAlphaProgress() {
+    // Color the slider track up to the current alpha value.
     const alpha = Number(alphaInput.value);
     const min = Number(alphaInput.min);
     const max = Number(alphaInput.max);
@@ -453,12 +495,13 @@
   }
 
   function animate(timestamp) {
+    // Convert real elapsed time into simulation time, then request another frame.
     const elapsed = lastFrame ? Math.min((timestamp - lastFrame) / 1000, 0.05) : 0;
     lastFrame = timestamp;
 
     if (elapsed > 0) {
       const alpha = Number(alphaInput.value);
-      // Advance simulated time faster above alpha_c without changing the ODE.
+      // Speed up playback above alpha_c without changing the underlying equation.
       const playbackRate = alpha > criticalAlpha ? 4.5 : 3;
       let remaining = elapsed * playbackRate;
       while (remaining > 0) {
@@ -477,6 +520,8 @@
     frameRequest = window.requestAnimationFrame(animate);
   }
 
+  // Slider changes update the reference branch and seed the unstable mode when
+  // crossing the critical value from below.
   alphaInput.addEventListener("input", function () {
     const alpha = Number(alphaInput.value);
     updateAlphaProgress();
@@ -487,6 +532,7 @@
     previousAlpha = alpha;
   });
 
+  // Randomize all phases while keeping the same graph and current alpha.
   shuffleButton.addEventListener("click", function () {
     phases = phases.map(function () {
       return Math.random() * twoPi - Math.PI;
@@ -494,15 +540,18 @@
     draw();
   });
 
+  // Redraw after resizing and reset frame timing when the tab becomes visible.
   window.addEventListener("resize", draw);
   document.addEventListener("visibilitychange", function () {
     lastFrame = 0;
   });
 
+  // Initial draw, followed by the continuous animation loop.
   updateAlphaProgress();
   resetSimulation();
   frameRequest = window.requestAnimationFrame(animate);
 
+  // Stop requesting frames after the page is left.
   window.addEventListener("pagehide", function () {
     window.cancelAnimationFrame(frameRequest);
   });

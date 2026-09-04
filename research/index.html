@@ -9,7 +9,7 @@
   <link rel="canonical" href="https://llui2.github.io/research/">
   <link rel="icon" type="image/png" href="/images/window.png">
   <link rel="apple-touch-icon" href="/images/window.png">
-  <link rel="stylesheet" href="../style.css?v=20260726-3">
+  <link rel="stylesheet" href="../style.css?v=20260904-1">
 </head>
 <body class="research-page">
   <div data-include="/includes/header.html"></div>
@@ -47,11 +47,14 @@
       aria-label="Remote synchronization simulation"
     >
       <div class="research-simulation-heading">
-        <img
-          class="research-simulation-equation"
-          src="projects/cycle-holonomy/equation.svg"
-          alt="phi dot i equals kappa times the sum over neighbors j of sine of phi j minus phi i minus alpha"
-        >
+        <div class="research-simulation-equation math-display" data-math>
+          \[
+          \dot{\phi}_i
+          =
+          \kappa \sum_{j\sim i}
+          \sin(\phi_j-\phi_i-\alpha)
+          \]
+        </div>
       </div>
 
       <div class="research-alpha-control">
@@ -100,16 +103,13 @@
             width="560"
             height="420"
             role="img"
-            aria-label="Distance from the synch branch over time"
+            aria-label="RMS phase deviation from the reference branch over time"
           ></canvas>
-          <figcaption class="research-simulation-legend">
-            <span class="is-remote">distance from synch branch</span>
-          </figcaption>
         </figure>
       </div>
 
       <p class="research-simulation-explanation">
-        synch branch · full synchronization at α = 0 → phase-locked states as α increases
+        reference branch · continuation of the fully synchronous state at α = 0
       </p>
 
     </section>
@@ -127,8 +127,8 @@
 
   <div data-include="/includes/footer.html"></div>
 
-  <script src="../script.js"></script>
-  <script src="assets/research-graph.js?v=20260726-3"></script>
+  <script src="../script.js?v=20260721-1"></script>
+  <script src="assets/research-graph.js?v=20260904-1"></script>
   <script src="projects/cycle-holonomy/simulation.js?v=20260706-18"></script>
 </body>
 </html>

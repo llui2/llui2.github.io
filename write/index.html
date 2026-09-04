@@ -23,14 +23,6 @@
             <input type="range" id="fontSize" min="14" max="26" value="16" step="1">
             <span id="fontSizeValue">16px</span>
           </label>
-          <label class="write-control">
-            Font family:
-            <select id="fontFamily">
-              <option value="system">System</option>
-              <option value="serif">Serif</option>
-              <option value="mono">Mono</option>
-            </select>
-          </label>
         </div>
         <textarea id="writeEditor" placeholder="Start writing..." aria-label="Text editor"></textarea>
         <div class="write-word-count" aria-live="polite">
@@ -39,34 +31,6 @@
         </div>
       </div>
 
-      <div class="write-analysis">
-        <section class="write-zipf" aria-label="Word frequency rank plot">
-          <div class="zipf-chart-wrap">
-            <canvas id="zipfChart" role="img" aria-label="Word frequency rank plot"></canvas>
-            <div id="zipfTooltip" class="zipf-tooltip" hidden></div>
-          </div>
-        </section>
-
-        <section class="write-word-info" aria-label="Word information">
-          <div id="densityContainer">
-            <table id="densityTable" aria-label="Word frequencies with word, rank, and frequency columns">
-              <colgroup>
-                <col class="col-word">
-                <col class="col-rank">
-                <col class="col-count">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Word</th>
-                  <th>Rank</th>
-                  <th>Frequency</th>
-                </tr>
-              </thead>
-              <tbody id="densityList" aria-live="polite"></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
     </section>
   </main>
 

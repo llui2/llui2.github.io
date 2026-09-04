@@ -1,7 +1,13 @@
+// Site-wide JS notes:
+// This file contains two independent helpers used by several pages:
+// 1. the animated random-walk background, and
+// 2. the loaders for shared HTML, Markdown notes, and optional math.
+// Both parts return without errors when their page elements or browser features are absent.
 // Optional, non-critical behavior only.
 document.documentElement.classList.add("js");
 
 (function () {
+  // Disable the background animation when reduced motion is requested.
   const reducedMotion =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -10,6 +16,7 @@ document.documentElement.classList.add("js");
     return;
   }
 
+  // Create one canvas behind the page. It is decorative and hidden from screen readers.
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
@@ -21,6 +28,7 @@ document.documentElement.classList.add("js");
   canvas.setAttribute("aria-hidden", "true");
   document.body.prepend(canvas);
 
+  // These values control how many walkers appear and how often they move.
   const gridSize = 18;
   const walkerCount = 10;
   const trailLength = 50;
@@ -34,6 +42,7 @@ document.documentElement.classList.add("js");
     [0, -1],
   ];
 
+  // Current canvas/grid state. These values change when the page is resized.
   let width = 1;
   let height = 1;
   let columns = 2;
@@ -47,13 +56,15 @@ document.documentElement.classList.add("js");
   let walkDisplaySuspended = false;
   const accent = parseAccent();
 
+  // Do not carry an old animation state between page visits.
   try {
     window.sessionStorage.removeItem("llui2RandomWalkState");
   } catch (_error) {
-    // Storage can be unavailable in private or locked-down browsing modes.
+    // Storage may be unavailable in private or restricted browsing modes.
   }
 
   function parseAccent() {
+    // Read the site's accent color from CSS so the animation follows the theme.
     const value = getComputedStyle(document.documentElement)
       .getPropertyValue("--accent")
       .trim()
@@ -71,14 +82,17 @@ document.documentElement.classList.add("js");
   }
 
   function wrapIndex(value, limit) {
+    // Move past an edge to the opposite edge of the grid.
     return ((value % limit) + limit) % limit;
   }
 
   function randomGridIndex(limit) {
+    // Choose a valid random starting cell.
     return Math.floor(Math.random() * limit);
   }
 
   function clampGridIndex(value, limit) {
+    // Keep a saved/rescaled cell index inside the new grid.
     if (!Number.isFinite(value)) {
       return 0;
     }
@@ -87,6 +101,7 @@ document.documentElement.classList.add("js");
   }
 
   function scaleGridIndex(value, previousLimit, nextLimit) {
+    // Preserve a walker's approximate location when the grid changes size.
     if (
       !Number.isFinite(value) ||
       !Number.isFinite(previousLimit) ||
@@ -104,6 +119,7 @@ document.documentElement.classList.add("js");
   }
 
   function gridToPoint(column, row) {
+    // Convert a grid cell into a pixel position on the full-page canvas.
     const edgeRowInset = gridSize;
     const rowSpan = Math.max(0, height - edgeRowInset * 2);
 
@@ -117,6 +133,7 @@ document.documentElement.classList.add("js");
   }
 
   function pushPoint(walker, wrapX, wrapY) {
+    // Add the walker's newest position and discard very old trail points.
     walker.path.push({
       column: walker.column,
       row: walker.row,
@@ -130,6 +147,7 @@ document.documentElement.classList.add("js");
   }
 
   function stepWalker(walker) {
+    // Choose one of four directions, wrapping at the horizontal/vertical edges.
     const direction = directions[Math.floor(Math.random() * directions.length)];
     const rawColumn = walker.column + direction[0];
     const rawRow = walker.row + direction[1];
@@ -144,6 +162,7 @@ document.documentElement.classList.add("js");
   }
 
   function createWalker() {
+    // Make a walker at a random cell with an empty trail.
     return {
       column: randomGridIndex(columns),
       row: randomGridIndex(rows),
@@ -152,10 +171,13 @@ document.documentElement.classList.add("js");
   }
 
   function resetWalkers() {
+    // Start all background walkers again after a resize or page return.
     walkers = Array.from({ length: walkerCount }, createWalker);
   }
 
   function measurePage() {
+    // Measure the document, not just the viewport. Temporarily hiding the canvas
+    // prevents the canvas itself from making the document appear larger.
     const previousWidth = canvas.style.width;
     const previousHeight = canvas.style.height;
 
@@ -184,6 +206,7 @@ document.documentElement.classList.add("js");
   }
 
   function scaleWalkerTrail(walker, previousColumns, previousRows) {
+    // Translate every old trail point onto the resized grid.
     walker.column = scaleGridIndex(walker.column, previousColumns, columns);
     walker.row = scaleGridIndex(walker.row, previousRows, rows);
     walker.path = walker.path.map(function (point) {
@@ -197,6 +220,8 @@ document.documentElement.classList.add("js");
   }
 
   function drawWalker(walker) {
+    // Draw one trail. A wrapped jump is split so it does not draw a long line
+    // across the whole screen.
     if (walker.path.length < 2) {
       return;
     }
@@ -237,6 +262,7 @@ document.documentElement.classList.add("js");
   }
 
   function draw() {
+    // Clear the previous frame and redraw all walker trails in the accent color.
     context.clearRect(0, 0, width, height);
     context.strokeStyle = `rgba(${accent.r}, ${accent.g}, ${accent.b}, 0.2)`;
     context.lineWidth = strokeWidth;
@@ -247,6 +273,7 @@ document.documentElement.classList.add("js");
   }
 
   function fitCanvas(resetTrails) {
+    // Match the canvas to the full page and preserve trails where possible.
     if (walkDisplaySuspended) {
       draw();
       return;
@@ -298,6 +325,7 @@ document.documentElement.classList.add("js");
   }
 
   function queueResize(resetTrails) {
+    // Combine repeated resize requests into one animation-frame update.
     if (resizeQueued) {
       return;
     }
@@ -310,6 +338,7 @@ document.documentElement.classList.add("js");
   }
 
   function stopWalking() {
+    // Cancel the next timed walk step if the page is hidden or being left.
     if (walkTimer) {
       window.clearTimeout(walkTimer);
       walkTimer = null;
@@ -317,11 +346,13 @@ document.documentElement.classList.add("js");
   }
 
   function resetWalkDisplay() {
+    // Clear old paths and immediately show a fresh set of walkers.
     resetWalkers();
     draw();
   }
 
   function suspendWalkDisplay() {
+    // Hide and pause the background while the page is not visible.
     walkDisplaySuspended = true;
     canvas.style.visibility = "hidden";
     stopWalking();
@@ -329,6 +360,7 @@ document.documentElement.classList.add("js");
   }
 
   function resumeWalkDisplay(resetTrails) {
+    // Show the background again, resize it, and restart its timed movement.
     walkDisplaySuspended = false;
     canvas.style.visibility = "";
     fitCanvas(Boolean(resetTrails));
@@ -336,10 +368,13 @@ document.documentElement.classList.add("js");
   }
 
   function normalizedPathname(pathname) {
+    // Treat /page and /page/index.html as the same page for navigation checks.
     return pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
   }
 
   function shouldSuspendForNavigation(event) {
+    // Only pause for an ordinary same-site page navigation. Modified clicks,
+    // downloads, and new-tab links should keep their normal behavior.
     const link = event.target.closest && event.target.closest("a[href]");
 
     if (
@@ -367,6 +402,7 @@ document.documentElement.classList.add("js");
   }
 
   function scheduleWalking() {
+    // Schedule one future movement unless the animation is already paused.
     if (walkTimer || document.hidden || walkDisplaySuspended) {
       return;
     }
@@ -375,6 +411,7 @@ document.documentElement.classList.add("js");
   }
 
   function tick() {
+    // Move every walker once, redraw, and schedule the next step.
     walkTimer = null;
 
     if (document.hidden || walkDisplaySuspended) {
@@ -387,10 +424,12 @@ document.documentElement.classList.add("js");
   }
 
   function beginWalkingAfterLoad() {
+    // The first post-load pass knows the final document dimensions.
     queueResize(true);
     scheduleWalking();
   }
 
+  // Start the background and connect it to browser/page lifecycle events.
   fitCanvas(true);
   if (document.readyState === "complete") {
     beginWalkingAfterLoad();
@@ -398,6 +437,7 @@ document.documentElement.classList.add("js");
     window.addEventListener("load", beginWalkingAfterLoad);
   }
 
+  // Wait briefly after resizing before recalculating the canvas dimensions.
   window.addEventListener("resize", function () {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(function () {
@@ -410,6 +450,7 @@ document.documentElement.classList.add("js");
     });
   }
 
+  // Pause when the tab is hidden and restart with new trails when visible.
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
       suspendWalkDisplay();
@@ -431,6 +472,7 @@ document.documentElement.classList.add("js");
     resumeWalkDisplay(true);
   });
 
+  // Pause before navigating so the old page does not keep animating during exit.
   document.addEventListener(
     "click",
     function (event) {
@@ -441,6 +483,7 @@ document.documentElement.classList.add("js");
     true
   );
 
+  // Loaded includes can change page height, so measure again after DOM changes.
   new MutationObserver(function () {
     window.clearTimeout(mutationTimer);
     mutationTimer = window.setTimeout(function () {
@@ -450,6 +493,7 @@ document.documentElement.classList.add("js");
 })();
 
 (function () {
+  // Load shared fragments such as the header and footer into their placeholders.
   const includes = document.querySelectorAll("[data-include]");
   if (includes.length) {
     includes.forEach(function (node) {
@@ -473,21 +517,30 @@ document.documentElement.classList.add("js");
     });
   }
 
+  // Find pages that need Markdown, note navigation, or MathJax.
   const targets = document.querySelectorAll("[data-md]");
   const noteReaders = document.querySelectorAll("[data-notes-reader]");
-  if (!targets.length && !noteReaders.length) {
+  const mathTargets = document.querySelectorAll("[data-math]");
+  if (!targets.length && !noteReaders.length && !mathTargets.length) {
     return;
   }
 
+  // MathJax is loaded only on pages that actually contain TeX-like notation.
   const mathJaxSource =
     "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
   let mathJaxReady = null;
 
   function hasTexMath(value) {
-    return /(^|[^\\])\$[^$\n]+\$/.test(value) || /\$\$[\s\S]+?\$\$/.test(value);
+    // Recognize the three math forms supported by the Markdown renderer.
+    return (
+      /(^|[^\\])\$[^$\n]+\$/.test(value) ||
+      /\$\$[\s\S]+?\$\$/.test(value) ||
+      /\\\[[\s\S]+?\\\]/.test(value)
+    );
   }
 
   function ensureMathJax() {
+    // Reuse an existing loader promise so multiple math targets load one script.
     if (window.MathJax && window.MathJax.typesetPromise) {
       return Promise.resolve(window.MathJax);
     }
@@ -521,6 +574,7 @@ document.documentElement.classList.add("js");
   }
 
   function typesetMath(target) {
+    // Ask MathJax to replace math text with formatted math.
     if (!hasTexMath(target.textContent || "")) {
       return;
     }
@@ -537,6 +591,7 @@ document.documentElement.classList.add("js");
   }
 
   function escapeHtml(value) {
+    // Markdown is user/content data, so escape HTML before inserting it.
     return value
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -545,6 +600,9 @@ document.documentElement.classList.add("js");
   }
 
   function renderMarkdown(raw) {
+    // Convert the Markdown syntax used by this site into HTML.
+    // Code and math are temporarily replaced with tokens so ordinary formatting
+    // does not accidentally modify their contents.
     const codeBlocks = [];
     let content = raw.replace(/```(\w+)?\n([\s\S]*?)```/g, function (
       _match,
@@ -558,12 +616,25 @@ document.documentElement.classList.add("js");
       return token;
     });
 
+    const mathBlocks = [];
+    content = content.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, function (
+      _match,
+      math
+    ) {
+      const token = `%%MATHBLOCK_${mathBlocks.length}%%`;
+      mathBlocks.push(
+        `<div class="math-display">$$\n${escapeHtml(math.trim())}\n$$</div>`
+      );
+      return token;
+    });
+
     const lines = content.split(/\r?\n/);
     let html = "";
     let listOpen = false;
     let paragraph = [];
 
     function renderLink(label, href) {
+      // Add a new-tab target only for external links; local links stay local.
       const cleanHref = href.trim();
       const isExternal = /^https?:\/\//i.test(cleanHref);
       const externalAttrs = isExternal
@@ -574,6 +645,8 @@ document.documentElement.classList.add("js");
     }
 
     function formatInline(text) {
+      // Handle the inline syntax used in notes: wiki links, Markdown links,
+      // code spans, bold, and italics.
       return text
         .replace(/\[\[([^\]]+)\]\(([^)]+)\)\]/g, function (_match, label, href) {
           return `[${renderLink(label, href)}]`;
@@ -594,6 +667,7 @@ document.documentElement.classList.add("js");
     }
 
     function flushParagraph() {
+      // Join consecutive ordinary lines into one paragraph element.
       if (!paragraph.length) {
         return;
       }
@@ -602,14 +676,16 @@ document.documentElement.classList.add("js");
     }
 
     function closeList() {
+      // Finish an open list before a heading, paragraph, or blank line.
       if (listOpen) {
         html += "</ul>";
         listOpen = false;
       }
     }
 
+    // Read the document line by line and choose its HTML structure.
     lines.forEach(function (line) {
-      if (line.includes("%%CODEBLOCK_")) {
+      if (/%%(?:CODE|MATH)BLOCK_\d+%%/.test(line)) {
         flushParagraph();
         closeList();
         html += line;
@@ -648,14 +724,21 @@ document.documentElement.classList.add("js");
     flushParagraph();
     closeList();
 
+    // Put protected code/math blocks back where their tokens were.
     codeBlocks.forEach(function (block, index) {
       html = html.replace(`%%CODEBLOCK_${index}%%`, block);
+    });
+
+    mathBlocks.forEach(function (block, index) {
+      html = html.replace(`%%MATHBLOCK_${index}%%`, block);
     });
 
     return html;
   }
 
   function renderMarkdownInto(target, path) {
+    // Fetch one Markdown file and replace the target's contents, with a readable
+    // fallback message if the file cannot be loaded.
     const fallback =
       "<p>Notes failed to load. Check the Markdown file path.</p>";
 
@@ -676,15 +759,18 @@ document.documentElement.classList.add("js");
   }
 
   function renderTarget(target) {
+    // Render a [data-md] element from its declared file.
     renderMarkdownInto(target, target.getAttribute("data-md"));
   }
 
   function safeNoteFile(value) {
+    // Notes are intentionally limited to simple files in the notes directory.
     const file = String(value || "").trim();
     return /^[a-z0-9._-]+\.md$/i.test(file) ? file : "";
   }
 
   function noteTitleFromFile(file) {
+    // Make a display title when notes.json does not provide one.
     return file
       .replace(/\.md$/i, "")
       .replace(/[-_]+/g, " ")
@@ -694,6 +780,7 @@ document.documentElement.classList.add("js");
   }
 
   function slugify(value, fallback) {
+    // Turn a note title/file name into a stable ID for the URL hash.
     const slug = String(value || "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -706,6 +793,7 @@ document.documentElement.classList.add("js");
   }
 
   function normalizeNotes(rawNotes) {
+    // Clean the notes index, discard invalid entries, and make slugs unique.
     const usedSlugs = {};
 
     return rawNotes
@@ -737,6 +825,7 @@ document.documentElement.classList.add("js");
   }
 
   function noteFromLocation(notes) {
+    // Read the URL hash to find the note requested by a bookmark or back button.
     let requested = "";
     try {
       requested = decodeURIComponent(window.location.hash.slice(1));
@@ -756,6 +845,7 @@ document.documentElement.classList.add("js");
   }
 
   function renderNotesList(list, notes, activateNote) {
+    // Build the sidebar links and connect each one to the note switcher.
     if (!list) {
       return;
     }
@@ -788,6 +878,7 @@ document.documentElement.classList.add("js");
   }
 
   function markActiveNote(list, activeNote) {
+    // Mark the selected sidebar note for assistive tech.
     if (!list) {
       return;
     }
@@ -803,6 +894,7 @@ document.documentElement.classList.add("js");
   }
 
   function renderNotesReader(reader) {
+    // Set up a note reader: load its index, select a note, and react to hash changes.
     const source = reader.getAttribute("data-notes-source") || "notes.json";
     const defaultFile = safeNoteFile(reader.getAttribute("data-notes-default"));
     const list = document.querySelector("[data-notes-list]");
@@ -810,6 +902,7 @@ document.documentElement.classList.add("js");
     let activeNote = null;
 
     function activateNote(note, updateHash) {
+      // Replace the reader contents and optionally update the URL without reloading.
       activeNote = note;
       renderMarkdownInto(reader, note.file);
       markActiveNote(list, note);
@@ -819,6 +912,7 @@ document.documentElement.classList.add("js");
       }
     }
 
+    // The index supplies the available notes and their display order.
     fetch(source)
       .then(function (response) {
         if (!response.ok) {
@@ -859,4 +953,5 @@ document.documentElement.classList.add("js");
 
   targets.forEach(renderTarget);
   noteReaders.forEach(renderNotesReader);
+  mathTargets.forEach(typesetMath);
 })();
