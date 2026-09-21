@@ -55,7 +55,7 @@ footer {
 
 .header-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.4fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: stretch;
 }
@@ -136,7 +136,6 @@ code {
 section {
   padding: 0 0 6px;
   margin-bottom: 18px;
-  border-bottom: 1px solid var(--line);
 }
 
 .markdown h1,

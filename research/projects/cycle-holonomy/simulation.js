@@ -486,12 +486,20 @@
   }
 
   function updateAlphaProgress() {
-    // Color the slider track up to the current alpha value.
+    // Color the slider track up to the thumb center. WebKit keeps the thumb
+    // half a thumb-width inside each end of the input, so using the raw value
+    // percentage would leave a small colored edge beyond the thumb at max.
     const alpha = Number(alphaInput.value);
     const min = Number(alphaInput.min);
     const max = Number(alphaInput.max);
-    const progress = max > min ? ((alpha - min) / (max - min)) * 100 : 0;
-    alphaInput.style.setProperty("--range-progress", progress + "%");
+    const progress =
+      max > min ? Math.max(0, Math.min(1, (alpha - min) / (max - min))) : 0;
+    const inputWidth = alphaInput.getBoundingClientRect().width;
+    const thumbWidth = 15;
+    const travel = Math.max(0, inputWidth - thumbWidth);
+    const thumbCenter = thumbWidth * 0.5 + progress * travel;
+    const fillPercent = inputWidth > 0 ? (thumbCenter / inputWidth) * 100 : 0;
+    alphaInput.style.setProperty("--range-progress", fillPercent + "%");
   }
 
   function animate(timestamp) {
@@ -541,7 +549,10 @@
   });
 
   // Redraw after resizing and reset frame timing when the tab becomes visible.
-  window.addEventListener("resize", draw);
+  window.addEventListener("resize", function () {
+    updateAlphaProgress();
+    draw();
+  });
   document.addEventListener("visibilitychange", function () {
     lastFrame = 0;
   });
