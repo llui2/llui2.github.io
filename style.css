@@ -29,6 +29,7 @@ body {
   color: var(--fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+  font-size: calc(1rem + 1px);
   line-height: 1.5;
   overflow-x: hidden;
   position: relative;
@@ -82,7 +83,7 @@ footer {
 
 .site-title {
   margin: 0 0 10px;
-  font-size: 1.5rem;
+  font-size: calc(1.5rem + 1px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -118,7 +119,7 @@ a:focus {
 h1,
 h2 {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: calc(1rem + 1px);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -148,19 +149,19 @@ section {
 
 .markdown h1 {
   margin: 0 0 14px;
-  font-size: 1.35rem;
+  font-size: calc(1.35rem + 1px);
   line-height: 1.25;
 }
 
 .markdown h2 {
   margin: 24px 0 12px;
-  font-size: 1.18rem;
+  font-size: calc(1.18rem + 1px);
   line-height: 1.3;
 }
 
 .markdown h3 {
   margin: 18px 0 10px;
-  font-size: 1.05rem;
+  font-size: calc(1.05rem + 1px);
   line-height: 1.35;
 }
 
@@ -337,7 +338,7 @@ section {
   cursor: pointer;
   fill: var(--fg);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   opacity: 1;
   text-anchor: start;
   pointer-events: all;
@@ -388,17 +389,17 @@ section {
 
 .research-graph-label-reference {
   fill: var(--dim);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .research-graph-label-topic {
   fill: var(--dim);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .research-graph-year {
   fill: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -445,7 +446,7 @@ section {
   background: var(--bg);
   color: var(--dim);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem + 1px);
   cursor: pointer;
 }
 
@@ -460,7 +461,7 @@ section {
   margin: -2px auto 0;
   min-width: 0;
   color: var(--dim);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem + 1px);
 }
 
 .research-alpha-track {
@@ -558,7 +559,7 @@ section {
   position: absolute;
   bottom: 8px;
   left: 50%;
-  font-size: 0.84rem;
+  font-size: calc(0.84rem + 1px);
   font-weight: 400;
   transform: translateX(-50%);
   white-space: nowrap;
@@ -579,7 +580,7 @@ section {
   height: 19px;
   margin-top: 1px;
   color: var(--dim);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem + 1px);
 }
 
 .research-alpha-scale span {
@@ -625,7 +626,7 @@ section {
   min-height: 2.5em;
   margin-top: 7px;
   color: var(--dim);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem + 1px);
   line-height: 1.35;
 }
 
@@ -637,7 +638,7 @@ section {
   max-width: 90ch;
   margin: 9px auto 0;
   color: var(--dim);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem + 1px);
   line-height: 1.45;
   text-align: center;
 }
@@ -693,7 +694,7 @@ footer p {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem + 1px);
   color: var(--dim);
 }
 
@@ -764,7 +765,7 @@ footer p {
   background: var(--bg);
   border: 1px solid var(--line);
   color: var(--fg);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.6;
   resize: vertical;
   font-family: inherit;
@@ -788,13 +789,13 @@ footer p {
 .write-word-count #wordCount {
   color: var(--accent);
   font-weight: 700;
-  font-size: 1.35rem;
+  font-size: calc(1.35rem + 1px);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .write-word-count-label {
-  font-size: 0.76rem;
+  font-size: calc(0.76rem + 1px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

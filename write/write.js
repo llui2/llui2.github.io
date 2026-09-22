@@ -9,7 +9,7 @@
   const wordCountDisplay = document.getElementById("wordCount");
   const wordCountLabel = document.getElementById("wordCountLabel");
   // Keep the starting size in one place so the slider and editor agree.
-  const DEFAULT_FONT_SIZE = 16;
+  const DEFAULT_FONT_SIZE = 17;
 
   // Storage is retained for the old draft key, although drafts are cleared
   // on load. Keeping the name here makes that decision easy to change.
