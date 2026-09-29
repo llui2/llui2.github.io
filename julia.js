@@ -1,11 +1,18 @@
 // Homepage Julia boundary: the rendered cells move along their own geometry.
 (function () {
   const canvas = document.querySelector(".julia-canvas");
-  const main = document.querySelector("main");
   const context = canvas && canvas.getContext("2d", { alpha: true });
-  if (!canvas || !main || !context) return;
+  if (!canvas || !context) return;
 
   const PIXEL_SIZE = 5;
+  const JULIA_SIZE = 1700;
+  const ANIMATION_SIZE = 2300;
+  const JULIA_OFFSET = (ANIMATION_SIZE - JULIA_SIZE) / (2 * PIXEL_SIZE);
+  const ANIMATION_COLUMNS = ANIMATION_SIZE / PIXEL_SIZE;
+  const COLUMNS = JULIA_SIZE / PIXEL_SIZE;
+  const ROWS = COLUMNS;
+  const ORIGIN_X = 460;
+  const ORIGIN_Y = 460;
   const MAX_ITERATIONS = 120;
   const EDGE_START = 16;
   const FPS = 15;
@@ -16,6 +23,7 @@
   const SCENE_SCALE = 1.65 / 900;
   const MOTION_SPEEDS = [0.18, 0.27, 0.39];
   const MOTION_STRENGTHS = [1.05, 0.68, 0.22];
+  const SCALE_PHASE_LAG = [0, 0.13, 0.26];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
@@ -26,45 +34,26 @@
   const background = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
   const tones = [orange.map((v) => Math.max(0, Math.round(v * 0.88))), orange,
     lighten(0.18), lighten(0.38), lighten(0.58), background];
-  let columns = 0, rows = 0, branchX = 0, textTop = 0, canvasLeft = 0, canvasTop = 0;
+  const columns = COLUMNS, rows = ROWS;
   let frameImage, boundary = [], fieldPixels = [], tips = [], walkers = [];
   let formationLookup;
   let elapsed = 0, nextSpawn = 0.5, lastFrame = 0;
-  let frameRequest = 0, resizeTimer = 0, resizePending = false;
+  let frameRequest = 0;
   let hidden = document.hidden;
 
   function complexAt(x, y) {
-    return { real: ((x + 0.5) * PIXEL_SIZE + canvasLeft - branchX) * SCENE_SCALE - 0.7,
-      imaginary: ((y + 0.5) * PIXEL_SIZE + canvasTop - textTop) * SCENE_SCALE - 0.7 };
-  }
-
-  function cellAt(real, imaginary) {
-    return { x: Math.round((branchX + (real + 0.7) / SCENE_SCALE - canvasLeft) / PIXEL_SIZE - 0.5),
-      y: Math.round((textTop + (imaginary + 0.7) / SCENE_SCALE - canvasTop) / PIXEL_SIZE - 0.5) };
+    return { real: ((x + 0.5) * PIXEL_SIZE - ORIGIN_X) * SCENE_SCALE - 0.7,
+      imaginary: ((y + 0.5) * PIXEL_SIZE - ORIGIN_Y) * SCENE_SCALE - 0.7 };
   }
 
   function isEdge(value) {
     return value >= EDGE_START && value < MAX_ITERATIONS;
   }
 
-  function prepareField() {
-    const nextColumns = Math.max(1, Math.ceil((window.innerWidth + 30) / PIXEL_SIZE));
-    const nextRows = Math.max(1, Math.ceil((window.innerHeight + 30) / PIXEL_SIZE));
-    // Exact CSS cell dimensions keep x and y world scales identical.
-    canvas.style.width = `${nextColumns * PIXEL_SIZE}px`;
-    canvas.style.height = `${nextRows * PIXEL_SIZE}px`;
-    const bounds = canvas.getBoundingClientRect();
-    const nextBranchX = main.getBoundingClientRect().left + 625;
-    const nextTextTop = (parseFloat(getComputedStyle(document.body).paddingTop) || 0) + 100;
-    if (nextColumns === columns && nextRows === rows &&
-        nextBranchX === branchX && nextTextTop === textTop &&
-        bounds.left === canvasLeft && bounds.top === canvasTop) return false;
-    columns = nextColumns; rows = nextRows;
-    branchX = nextBranchX; textTop = nextTextTop;
-    canvasLeft = bounds.left; canvasTop = bounds.top;
-    canvas.width = columns; canvas.height = rows;
+  function buildJuliaGeometry() {
+    canvas.width = ANIMATION_COLUMNS; canvas.height = ANIMATION_COLUMNS;
     context.imageSmoothingEnabled = false;
-    frameImage = context.createImageData(columns, rows);
+    frameImage = context.createImageData(ANIMATION_COLUMNS, ANIMATION_COLUMNS);
     const escape = new Uint8Array(columns * rows);
     const smooth = new Float32Array(columns * rows);
     const orbitCos = new Float32Array(columns * rows);
@@ -101,7 +90,7 @@
         smooth[y * columns + x] = sum / 9;
       }
     }
-    // Integral image makes several geometry scales cheap to sample once per resize.
+    // Integral image makes several geometry scales cheap to sample once at initialization.
     const stride = columns + 1;
     const integral = new Float64Array(stride * (rows + 1));
     const orbitCosIntegral = new Float64Array(stride * (rows + 1));
@@ -145,7 +134,6 @@
         orbitAngle(x, y, 7) * 0.9,
         orbitAngle(x, y, 2) * 1.05];
     }
-    const previousWalkers = walkers;
     boundary = [];
     fieldPixels = [];
     const candidates = [];
@@ -174,7 +162,6 @@
         const gx = smooth[y * columns + x + 1] - smooth[y * columns + x - 1];
         const gy = smooth[(y + 1) * columns + x] - smooth[(y - 1) * columns + x];
         const gradient = Math.hypot(gx, gy);
-        const position = complexAt(x, y);
         // Color is a permanent property of the local escape field, independent
         // of amplitude, phase, speed, and current displacement.
         const depth = Math.max(0, Math.min(1, (field - EDGE_START) / 76));
@@ -189,7 +176,7 @@
         // Curl directions come from escape-field contours. Their smoothed
         // versions carry related angular motion through nested structures.
         const point = {
-          x, y, real: position.real, imaginary: position.imaginary,
+          x, y,
           tx: fallback.x, ty: fallback.y,
           directions: [large || fallback, medium || fallback, fine || fallback],
           phases,
@@ -224,32 +211,16 @@
         if (tips.length >= 220) break;
       }
     }
-    // Keep walker time, position, trail and age. Reattach its source when a
-    // matching Julia cell remains in the new viewport projection.
-    for (const walker of previousWalkers) {
-      if (!walker.active) continue;
-      const source = boundary.find((point) =>
-        Math.abs(point.real - walker.sourceReal) < PIXEL_SIZE * SCENE_SCALE * 0.55 &&
-        Math.abs(point.imaginary - walker.sourceImaginary) < PIXEL_SIZE * SCENE_SCALE * 0.55);
-      walker.source = source || null;
-      if (source) source.detached = true;
-    }
     formationLookup = new Array(columns * rows);
     for (const pixel of fieldPixels.concat(boundary)) {
-      if (elapsed >= FORMATION_TIME || reducedMotion.matches) {
-        pixel.born = elapsed - FORMATION_TRAVEL;
-        pixel.fromX = pixel.x;
-        pixel.fromY = pixel.y;
-      }
       formationLookup[pixel.y * columns + pixel.x] = pixel;
     }
-    return true;
   }
 
   function motionPhase(point, time, scale) {
     const phase = point.phases[scale];
     const other = point.phases[(scale + 1) % 3];
-    return phase - time * MOTION_SPEEDS[scale] +
+    return phase + SCALE_PHASE_LAG[scale] - time * MOTION_SPEEDS[scale] +
       0.26 * Math.sin(time * (0.083 + scale * 0.028) + other) +
       0.14 * Math.sin(time * (0.053 + scale * 0.014) - phase);
   }
@@ -281,17 +252,15 @@
       const outward = Math.abs(point.outX) >= Math.abs(point.outY) ?
         [Math.sign(point.outX) || 1, 0] : [0, Math.sign(point.outY) || 1];
       point.detached = true;
-      const start = { real: point.real + (location.x - point.x) * PIXEL_SIZE * SCENE_SCALE,
-        imaginary: point.imaginary + (location.y - point.y) * PIXEL_SIZE * SCENE_SCALE };
-      const real = start.real + outward[0] * PIXEL_SIZE * SCENE_SCALE;
-      const imaginary = start.imaginary + outward[1] * PIXEL_SIZE * SCENE_SCALE;
-      walkers.push({ source: point, sourceReal: point.real, sourceImaginary: point.imaginary,
-        tone: point.tone, alpha: point.alpha, real, imaginary,
+      const start = { x: location.x + JULIA_OFFSET, y: location.y + JULIA_OFFSET };
+      const x = start.x + outward[0], y = start.y + outward[1];
+      walkers.push({ source: point, sourceX: start.x, sourceY: start.y,
+        tone: point.tone, alpha: point.alpha, x, y,
         outX: point.outX, outY: point.outY,
         previous: outward, run: 1,
         born: elapsed, lifetime: 14 + Math.random() * 6,
         nextStep: elapsed + STEP_TIME, active: true,
-        trail: [{ ...start, born: elapsed }, { real, imaginary, born: elapsed }] });
+        trail: [{ ...start, born: elapsed }, { x, y, born: elapsed }] });
       return;
     }
   }
@@ -299,8 +268,7 @@
   function moveWalker(walker) {
     // A mild cardinal-choice bias fades with distance from the source.
     // Every chosen move remains exactly one orthogonal lattice cell.
-    const distance = Math.hypot(walker.real - walker.sourceReal,
-      walker.imaginary - walker.sourceImaginary) / (PIXEL_SIZE * SCENE_SCALE);
+    const distance = Math.hypot(walker.x - walker.sourceX, walker.y - walker.sourceY);
     const beta = 0.65 * Math.exp(-distance / 24);
     const direction = window.PixelWalkers.direction(walker.outX, walker.outY,
       beta, walker.previous, walker.run);
@@ -308,9 +276,8 @@
     walker.run = dx === walker.previous[0] && dy === walker.previous[1] ?
       walker.run + 1 : 1;
     walker.previous = direction;
-    walker.real += dx * PIXEL_SIZE * SCENE_SCALE;
-    walker.imaginary += dy * PIXEL_SIZE * SCENE_SCALE;
-    walker.trail.push({ real: walker.real, imaginary: walker.imaginary, born: elapsed });
+    walker.x += dx; walker.y += dy;
+    walker.trail.push({ x: walker.x, y: walker.y, born: elapsed });
   }
 
   function updateWalkers() {
@@ -335,8 +302,8 @@
   }
 
   function paintPixel(x, y, tone, alpha) {
-    if (x < 0 || x >= columns || y < 0 || y >= rows || alpha <= 0) return;
-    const offset = (y * columns + x) * 4;
+    if (x < 0 || x >= ANIMATION_COLUMNS || y < 0 || y >= ANIMATION_COLUMNS || alpha <= 0) return;
+    const offset = (y * ANIMATION_COLUMNS + x) * 4;
     if (alpha <= frameImage.data[offset + 3]) return;
     const color = tones[tone];
     frameImage.data[offset] = color[0];
@@ -351,7 +318,8 @@
     const wave = formationTime / FORMATION_TIME + envelope * (
       0.21 * Math.sin(pixel.phases[0] - elapsed * MOTION_SPEEDS[0]) +
       0.11 * Math.sin(pixel.phases[1] - elapsed * MOTION_SPEEDS[1]));
-    const threshold = 0.08 + 0.55 * (1 - pixel.strength);
+    const threshold = 0.08 + 0.55 * (1 - pixel.strength) -
+      0.025 * pixel.strength;
     return wave > threshold;
   }
 
@@ -405,28 +373,32 @@
     frameImage.data.fill(0);
     for (const pixel of fieldPixels) {
       const location = formationPosition(pixel, animate);
-      if (location) paintPixel(location.x, location.y, pixel.tone, pixel.alpha);
+      if (location) paintPixel(location.x + JULIA_OFFSET, location.y + JULIA_OFFSET,
+        pixel.tone, pixel.alpha);
     }
     for (const point of boundary) {
       if (point.detached) continue;
       const location = formationPosition(point, animate);
-      if (location) paintPixel(location.x, location.y, point.tone, point.alpha);
+      if (location) paintPixel(location.x + JULIA_OFFSET, location.y + JULIA_OFFSET,
+        point.tone, point.alpha);
     }
+    drawWalkers(animate);
+    context.putImageData(frameImage, 0, 0);
+  }
+
+  function drawWalkers(animate) {
     if (animate) {
       for (const walker of walkers) {
         for (const point of walker.trail) {
           const fade = window.PixelWalkers.fade(elapsed - point.born, TRAIL_TIME);
-          const cell = cellAt(point.real, point.imaginary);
-          paintPixel(cell.x, cell.y, walker.tone, Math.round(walker.alpha * 0.8 * fade));
+          paintPixel(point.x, point.y, walker.tone, Math.round(walker.alpha * 0.8 * fade));
         }
         if (walker.active) {
           const fade = window.PixelWalkers.fade(elapsed - walker.born, walker.lifetime);
-          const cell = cellAt(walker.real, walker.imaginary);
-          paintPixel(cell.x, cell.y, walker.tone, Math.round(walker.alpha * fade));
+          paintPixel(walker.x, walker.y, walker.tone, Math.round(walker.alpha * fade));
         }
       }
     }
-    context.putImageData(frameImage, 0, 0);
   }
 
   function stopAnimation() {
@@ -446,16 +418,6 @@
     lastFrame = now; elapsed += delta;
     drawFrame(true); startAnimation();
   }
-  function rebuildAfterResize() {
-    resizeTimer = 0;
-    if (hidden) { resizePending = true; return; }
-    if (prepareField()) drawFrame(!reducedMotion.matches);
-    startAnimation();
-  }
-  function queueResize() {
-    window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(rebuildAfterResize, 200);
-  }
   function syncMotionPreference() {
     stopAnimation();
     if (hidden) return;
@@ -465,15 +427,12 @@
   function syncVisibility() {
     hidden = document.hidden;
     if (hidden) { stopAnimation(); return; }
-    if (resizePending) { resizePending = false; prepareField(); }
     drawFrame(!reducedMotion.matches);
     startAnimation();
   }
 
-  prepareField(); drawFrame(!reducedMotion.matches);
+  buildJuliaGeometry(); drawFrame(!reducedMotion.matches);
   startAnimation();
-  window.addEventListener("resize", queueResize);
-  if (window.visualViewport) window.visualViewport.addEventListener("resize", queueResize);
   document.addEventListener("visibilitychange", syncVisibility);
   window.addEventListener("pagehide", stopAnimation);
   window.addEventListener("pageshow", syncVisibility);

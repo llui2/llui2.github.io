@@ -4,6 +4,7 @@
   --line: #d7d9ef;
   --accent: #fc4c02;
   --bg: #ffffff;
+  --page-gutter: clamp(24px, 4vw, 40px);
 }
 
 * {
@@ -18,11 +19,12 @@ body {
 
 html {
   background-color: var(--bg);
+  scrollbar-gutter: stable both-edges;
 }
 
 body {
   margin: 0;
-  padding: 32px 20px 48px;
+  padding: 32px var(--page-gutter) 48px;
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--bg);
@@ -37,8 +39,9 @@ body {
 
 .random-walk-canvas {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -800px;
+  left: -980px;
+  width: 3000px;
   z-index: 0;
   pointer-events: none;
   background: transparent;
@@ -46,11 +49,11 @@ body {
 }
 
 .julia-canvas {
-  position: fixed;
-  top: -15px;
-  left: -15px;
-  width: calc(100% + 30px);
-  height: calc(100dvh + 30px);
+  position: absolute;
+  left: -135px;
+  top: -1070px;
+  width: 2300px;
+  height: 2300px;
   z-index: 0;
   pointer-events: none;
   background: transparent;
@@ -61,8 +64,29 @@ body {
 header,
 main,
 footer {
+  width: 100%;
   max-width: 1040px;
   margin: 0 auto 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.home-page main {
+  z-index: 0;
+  isolation: isolate;
+}
+
+.home-page main > section {
+  position: relative;
+  z-index: 1;
+}
+
+body:not(.home-page) main {
+  z-index: 0;
+  isolation: isolate;
+}
+
+body:not(.home-page) main > :not(.random-walk-canvas) {
   position: relative;
   z-index: 1;
 }
@@ -814,10 +838,6 @@ footer p {
 }
 
 @media (max-width: 640px) {
-  body {
-    padding: 22px 16px 36px;
-  }
-
   .header-split {
     grid-template-columns: 1fr;
   }

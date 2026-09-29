@@ -1,5 +1,3 @@
-
 # [research](/research/)
-
 
 # [notes](/notes/)

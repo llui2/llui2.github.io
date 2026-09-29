@@ -40,6 +40,8 @@ window.PixelWalkers = (function () {
 (function () {
   if (document.body.classList.contains("home-page")) return;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const main = document.querySelector("main");
+  if (!main) return;
 
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d", { alpha: true });
@@ -48,18 +50,24 @@ window.PixelWalkers = (function () {
   canvas.setAttribute("aria-hidden", "true");
 
   const SIZE = 5, FPS = 12, STEP_TIME = 0.18;
+  const FIELD_WIDTH = 3000;
+  const FIELD_TOP = 800, FIELD_LEFT = 980;
+  const columns = FIELD_WIDTH / SIZE;
   const TRAIL_TIME = 42, COUNT = 15;
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
   const orange = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const tones = [orange, ...[0.22, 0.42, 0.6].map((amount) =>
     orange.map((value) => Math.round(value + (255 - value) * amount)))];
-  let columns = 0, rows = 0, frameImage, walkers = [];
-  let elapsed = 0, lastFrame = 0, frameRequest = 0, resizeTimer = 0;
+  let rows = 0, frameImage, walkers = [];
+  let elapsed = 0, lastFrame = 0, frameRequest = 0;
 
   function newWalker() {
-    const x = Math.floor(Math.random() * columns);
-    const y = Math.floor(Math.random() * rows);
+    const x = Math.floor((FIELD_LEFT - 200 +
+      Math.random() * 1440) / SIZE);
+    const spawnHeight = Math.max(1000, main.offsetHeight);
+    const y = Math.floor((FIELD_TOP +
+      Math.random() * spawnHeight) / SIZE);
     const previous = window.PixelWalkers.direction();
     return { x, y, tone: Math.floor(Math.random() * tones.length),
       previous, run: 0,
@@ -67,30 +75,14 @@ window.PixelWalkers = (function () {
       trail: [{ x, y, born: elapsed }] };
   }
 
-  function resize() {
-    resizeTimer = 0;
-    const previousColumns = columns, previousRows = rows;
-    const width = Math.max(window.innerWidth, document.documentElement.scrollWidth);
-    const height = Math.max(window.innerHeight, document.documentElement.scrollHeight);
-    const nextColumns = Math.max(1, Math.ceil(width / SIZE));
-    const nextRows = Math.max(1, Math.ceil(height / SIZE));
-    if (nextColumns === columns && nextRows === rows) return;
-    columns = nextColumns; rows = nextRows;
-    canvas.style.width = `${columns * SIZE}px`;
+  function extendForContent() {
+    const requiredRows = Math.ceil((FIELD_TOP + main.offsetHeight + 100) / SIZE);
+    if (requiredRows <= rows && frameImage) return;
+    rows = Math.max(rows, requiredRows);
+    canvas.height = rows;
     canvas.style.height = `${rows * SIZE}px`;
-    canvas.width = columns; canvas.height = rows;
     context.imageSmoothingEnabled = false;
     frameImage = context.createImageData(columns, rows);
-    if (previousColumns && previousRows) {
-      const mapX = (x) => Math.min(columns - 1, Math.round(x * columns / previousColumns));
-      const mapY = (y) => Math.min(rows - 1, Math.round(y * rows / previousRows));
-      for (const walker of walkers) {
-        walker.x = mapX(walker.x); walker.y = mapY(walker.y);
-        for (const point of walker.trail) {
-          point.x = mapX(point.x); point.y = mapY(point.y);
-        }
-      }
-    }
     while (walkers.length < COUNT) walkers.push(newWalker());
     draw();
   }
@@ -162,27 +154,23 @@ window.PixelWalkers = (function () {
     if (frameRequest) cancelAnimationFrame(frameRequest);
     frameRequest = 0; lastFrame = 0;
   }
-  function queueResize() {
-    if (reducedMotion.matches) return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resize, 180);
-  }
+  canvas.width = columns;
+  canvas.style.width = `${FIELD_WIDTH}px`;
   if (!reducedMotion.matches) {
-    document.body.prepend(canvas);
-    resize(); start();
+    main.prepend(canvas);
+    extendForContent(); start();
   }
-  window.addEventListener("resize", queueResize);
-  window.addEventListener("load", queueResize);
+  const contentObserver = new ResizeObserver(extendForContent);
+  contentObserver.observe(main);
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stop(); else { queueResize(); start(); }
+    if (document.hidden) stop(); else { extendForContent(); start(); }
   });
   window.addEventListener("pagehide", stop);
   window.addEventListener("pageshow", start);
   reducedMotion.addEventListener("change", () => {
     if (reducedMotion.matches) { stop(); canvas.remove(); }
-    else { document.body.prepend(canvas); resize(); start(); }
+    else { main.prepend(canvas); extendForContent(); start(); }
   });
-  new MutationObserver(queueResize).observe(document.body, { childList: true, subtree: true });
 })();
 
 (function () {
