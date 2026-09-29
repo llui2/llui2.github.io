@@ -1,6 +1,190 @@
 // Shared HTML, Markdown, note navigation, and math loaders.
 document.documentElement.classList.add("js");
 
+// Small shared rules for Julia-born and standalone pixel walkers.
+window.PixelWalkers = (function () {
+  const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  function direction(outX = 0, outY = 0, beta = 0, previous = null,
+    run = 0, allowed = () => true, spread = false) {
+    // The occasional memory reset and long-run softening prevent straight rays.
+    const reset = previous && Math.random() < 0.06;
+    const softening = Math.min(0.6, Math.max(0, run - 3) * 0.12);
+    const weights = directions.map(([dx, dy]) => {
+      if (!allowed(dx, dy)) return 0;
+      let persistence = 1;
+      if (previous && !reset) {
+        const dot = dx * previous[0] + dy * previous[1];
+        const base = spread ?
+          (dot > 0 ? 0.5 : dot < 0 ? 0.07 : 0.215) :
+          (dot > 0 ? 0.45 : dot < 0 ? 0.1 : 0.225);
+        persistence = base * (1 - softening) + 0.25 * softening;
+      }
+      return persistence * Math.exp(beta * (dx * outX + dy * outY));
+    });
+    let draw = Math.random() * weights.reduce((sum, weight) => sum + weight, 0);
+    for (let i = 0; i < directions.length; i += 1) {
+      draw -= weights[i];
+      if (draw < 0) return directions[i];
+    }
+    return directions.find(([dx, dy]) => allowed(dx, dy)) || directions[3];
+  }
+  function fade(age, lifetime) {
+    return Math.max(0, 1 - age / lifetime) ** 2;
+  }
+  function keepTrail(trail, now, lifetime) {
+    return trail.filter((point) => now - point.born < lifetime);
+  }
+  return { direction, fade, keepTrail };
+})();
+
+(function () {
+  if (document.body.classList.contains("home-page")) return;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) return;
+  canvas.className = "random-walk-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+
+  const SIZE = 5, FPS = 12, STEP_TIME = 0.18;
+  const TRAIL_TIME = 42, COUNT = 15;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
+  const orange = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const tones = [orange, ...[0.22, 0.42, 0.6].map((amount) =>
+    orange.map((value) => Math.round(value + (255 - value) * amount)))];
+  let columns = 0, rows = 0, frameImage, walkers = [];
+  let elapsed = 0, lastFrame = 0, frameRequest = 0, resizeTimer = 0;
+
+  function newWalker() {
+    const x = Math.floor(Math.random() * columns);
+    const y = Math.floor(Math.random() * rows);
+    const previous = window.PixelWalkers.direction();
+    return { x, y, tone: Math.floor(Math.random() * tones.length),
+      previous, run: 0,
+      born: elapsed, lifetime: 18 + Math.random() * 6, nextStep: elapsed + STEP_TIME,
+      trail: [{ x, y, born: elapsed }] };
+  }
+
+  function resize() {
+    resizeTimer = 0;
+    const previousColumns = columns, previousRows = rows;
+    const width = Math.max(window.innerWidth, document.documentElement.scrollWidth);
+    const height = Math.max(window.innerHeight, document.documentElement.scrollHeight);
+    const nextColumns = Math.max(1, Math.ceil(width / SIZE));
+    const nextRows = Math.max(1, Math.ceil(height / SIZE));
+    if (nextColumns === columns && nextRows === rows) return;
+    columns = nextColumns; rows = nextRows;
+    canvas.style.width = `${columns * SIZE}px`;
+    canvas.style.height = `${rows * SIZE}px`;
+    canvas.width = columns; canvas.height = rows;
+    context.imageSmoothingEnabled = false;
+    frameImage = context.createImageData(columns, rows);
+    if (previousColumns && previousRows) {
+      const mapX = (x) => Math.min(columns - 1, Math.round(x * columns / previousColumns));
+      const mapY = (y) => Math.min(rows - 1, Math.round(y * rows / previousRows));
+      for (const walker of walkers) {
+        walker.x = mapX(walker.x); walker.y = mapY(walker.y);
+        for (const point of walker.trail) {
+          point.x = mapX(point.x); point.y = mapY(point.y);
+        }
+      }
+    }
+    while (walkers.length < COUNT) walkers.push(newWalker());
+    draw();
+  }
+
+  function paint(x, y, tone, alpha) {
+    if (x < 0 || x >= columns || y < 0 || y >= rows || alpha <= 0) return;
+    const at = (y * columns + x) * 4;
+    if (alpha <= frameImage.data[at + 3]) return;
+    const color = tones[tone];
+    frameImage.data[at] = color[0];
+    frameImage.data[at + 1] = color[1];
+    frameImage.data[at + 2] = color[2];
+    frameImage.data[at + 3] = alpha;
+  }
+
+  function draw() {
+    if (!frameImage) return;
+    frameImage.data.fill(0);
+    for (const walker of walkers) {
+      for (const point of walker.trail) {
+        const alpha = Math.round(85 * window.PixelWalkers.fade(elapsed - point.born, TRAIL_TIME));
+        paint(point.x, point.y, walker.tone, alpha);
+      }
+      if (elapsed - walker.born < walker.lifetime) {
+        paint(walker.x, walker.y, walker.tone, 100);
+      }
+    }
+    context.putImageData(frameImage, 0, 0);
+  }
+
+  function update() {
+    for (const walker of walkers) {
+      while (elapsed >= walker.nextStep && elapsed - walker.born < walker.lifetime) {
+        const direction = window.PixelWalkers.direction(0, 0, 0,
+          walker.previous, walker.run,
+          (dx, dy) => walker.x + dx >= 0 && walker.x + dx < columns &&
+            walker.y + dy >= 0 && walker.y + dy < rows, true);
+        const [dx, dy] = direction;
+        walker.run = dx === walker.previous[0] && dy === walker.previous[1] ?
+          walker.run + 1 : 1;
+        walker.previous = direction;
+        walker.x += dx;
+        walker.y += dy;
+        walker.trail.push({ x: walker.x, y: walker.y, born: walker.nextStep });
+        walker.nextStep += STEP_TIME;
+      }
+      walker.trail = window.PixelWalkers.keepTrail(walker.trail, elapsed, TRAIL_TIME);
+    }
+    walkers = walkers.filter((walker) => walker.trail.length);
+    const active = walkers.filter((walker) => elapsed - walker.born < walker.lifetime).length;
+    for (let i = active; i < COUNT; i += 1) walkers.push(newWalker());
+  }
+
+  function tick(now) {
+    frameRequest = 0;
+    if (document.hidden || reducedMotion.matches) return;
+    const interval = 1000 / FPS;
+    if (lastFrame && now - lastFrame < interval) { start(); return; }
+    elapsed += lastFrame ? Math.min(0.2, (now - lastFrame) / 1000) : interval / 1000;
+    lastFrame = now;
+    update(); draw(); start();
+  }
+  function start() {
+    if (!frameRequest && !document.hidden && !reducedMotion.matches) {
+      frameRequest = requestAnimationFrame(tick);
+    }
+  }
+  function stop() {
+    if (frameRequest) cancelAnimationFrame(frameRequest);
+    frameRequest = 0; lastFrame = 0;
+  }
+  function queueResize() {
+    if (reducedMotion.matches) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 180);
+  }
+  if (!reducedMotion.matches) {
+    document.body.prepend(canvas);
+    resize(); start();
+  }
+  window.addEventListener("resize", queueResize);
+  window.addEventListener("load", queueResize);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop(); else { queueResize(); start(); }
+  });
+  window.addEventListener("pagehide", stop);
+  window.addEventListener("pageshow", start);
+  reducedMotion.addEventListener("change", () => {
+    if (reducedMotion.matches) { stop(); canvas.remove(); }
+    else { document.body.prepend(canvas); resize(); start(); }
+  });
+  new MutationObserver(queueResize).observe(document.body, { childList: true, subtree: true });
+})();
+
 (function () {
   // Load shared fragments such as the header and footer into their placeholders.
   const includes = document.querySelectorAll("[data-include]");

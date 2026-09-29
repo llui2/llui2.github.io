@@ -10,10 +10,11 @@
   const EDGE_START = 16;
   const FPS = 15;
   const STEP_TIME = 0.14;
-  const TRAIL_TIME = 26;
+  const TRAIL_TIME = 42;
+  const FORMATION_TIME = 4.5;
+  const FORMATION_TRAVEL = 0.85;
   const SCENE_SCALE = 1.65 / 900;
-  const WALK_DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const MOTION_SPEEDS = [0.24, 0.36, 0.52];
+  const MOTION_SPEEDS = [0.18, 0.27, 0.39];
   const MOTION_STRENGTHS = [1.05, 0.68, 0.22];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
@@ -27,6 +28,7 @@
     lighten(0.18), lighten(0.38), lighten(0.58), background];
   let columns = 0, rows = 0, branchX = 0, textTop = 0, canvasLeft = 0, canvasTop = 0;
   let frameImage, boundary = [], fieldPixels = [], tips = [], walkers = [];
+  let formationLookup;
   let elapsed = 0, nextSpawn = 0.5, lastFrame = 0;
   let frameRequest = 0, resizeTimer = 0, resizePending = false;
   let hidden = document.hidden;
@@ -138,6 +140,11 @@
       const length = Math.hypot(gx, gy);
       return length > 0.001 ? { x: -gy / length, y: gx / length } : null;
     }
+    function phasesAt(x, y) {
+      return [orbitAngle(x, y, 18) * 0.72,
+        orbitAngle(x, y, 7) * 0.9,
+        orbitAngle(x, y, 2) * 1.05];
+    }
     const previousWalkers = walkers;
     boundary = [];
     fieldPixels = [];
@@ -151,18 +158,23 @@
         if (value < EDGE_START && field >= 5) {
           const weight = Math.min(1, (field - 5) / 20);
           const tone = weight < 0.1 ? 5 : weight < 0.65 ? 4 : 3;
-          fieldPixels.push({ x, y, tone, alpha: Math.round(55 + 150 * weight) });
+          const phases = phasesAt(x, y);
+          const entry = tangent(x, y, 2) || { x: 1, y: 0 };
+          fieldPixels.push({ x, y, tone, alpha: Math.round(55 + 150 * weight),
+            phases, entry, strength: weight * 0.2, born: null });
         } else if (value === MAX_ITERATIONS && field < 116) {
           const weight = Math.min(1, (116 - field) / 35);
+          const phases = phasesAt(x, y);
+          const entry = tangent(x, y, 2) || { x: 1, y: 0 };
           fieldPixels.push({ x, y, tone: weight < 0.45 ? 3 : 4,
-            alpha: Math.round(155 + 85 * weight) });
+            alpha: Math.round(155 + 85 * weight),
+            phases, entry, strength: weight * 0.25, born: null });
         }
         if (!isEdge(value)) continue;
         const gx = smooth[y * columns + x + 1] - smooth[y * columns + x - 1];
         const gy = smooth[(y + 1) * columns + x] - smooth[(y - 1) * columns + x];
         const gradient = Math.hypot(gx, gy);
         const position = complexAt(x, y);
-        const angle = Math.atan2(position.imaginary + 0.18, position.real + 0.18);
         // Color is a permanent property of the local escape field, independent
         // of amplitude, phase, speed, and current displacement.
         const depth = Math.max(0, Math.min(1, (field - EDGE_START) / 76));
@@ -173,16 +185,16 @@
         const medium = tangent(x, y, 7);
         const large = tangent(x, y, 18);
         const fallback = fine || medium || large || { x: 0, y: 0 };
+        const phases = phasesAt(x, y);
         // Curl directions come from escape-field contours. Their smoothed
         // versions carry related angular motion through nested structures.
         const point = {
           x, y, real: position.real, imaginary: position.imaginary,
           tx: fallback.x, ty: fallback.y,
           directions: [large || fallback, medium || fallback, fine || fallback],
-          phases: [orbitAngle(x, y, 18) * 0.72 + angle * 0.65,
-            orbitAngle(x, y, 7) * 0.9 + angle * 1.1,
-            orbitAngle(x, y, 2) * 1.05 + angle * 1.55],
-          tone, alpha, detached: false,
+          phases,
+          tone, alpha, strength: depth, born: null,
+          detached: false,
         };
         boundary.push(point);
         let edgeNeighbors = 0, exterior = 0, nx = 0, ny = 0;
@@ -222,16 +234,36 @@
       walker.source = source || null;
       if (source) source.detached = true;
     }
+    formationLookup = new Array(columns * rows);
+    for (const pixel of fieldPixels.concat(boundary)) {
+      if (elapsed >= FORMATION_TIME || reducedMotion.matches) {
+        pixel.born = elapsed - FORMATION_TRAVEL;
+        pixel.fromX = pixel.x;
+        pixel.fromY = pixel.y;
+      }
+      formationLookup[pixel.y * columns + pixel.x] = pixel;
+    }
     return true;
+  }
+
+  function motionPhase(point, time, scale) {
+    const phase = point.phases[scale];
+    const other = point.phases[(scale + 1) % 3];
+    return phase - time * MOTION_SPEEDS[scale] +
+      0.26 * Math.sin(time * (0.083 + scale * 0.028) + other) +
+      0.14 * Math.sin(time * (0.053 + scale * 0.014) - phase);
   }
 
   function displaced(point, time) {
     let dx = 0, dy = 0;
     for (let scale = 0; scale < 3; scale += 1) {
-      const angle = point.phases[scale] - time * MOTION_SPEEDS[scale];
-      const distance = MOTION_STRENGTHS[scale] * Math.sin(angle);
-      dx += point.directions[scale].x * distance;
-      dy += point.directions[scale].y * distance;
+      const angle = motionPhase(point, time, scale);
+      const direction = point.directions[scale];
+      const strength = MOTION_STRENGTHS[scale];
+      dx += strength * (direction.x * Math.sin(angle) -
+        direction.y * 0.28 * Math.cos(angle));
+      dy += strength * (direction.y * Math.sin(angle) +
+        direction.x * 0.28 * Math.cos(angle));
     }
     const length = Math.hypot(dx, dy);
     if (length > 2) { dx *= 2 / length; dy *= 2 / length; }
@@ -242,9 +274,10 @@
     if (walkers.filter((walker) => walker.active).length >= 35 || !tips.length) return;
     for (let attempt = 0; attempt < 24; attempt += 1) {
       const point = tips[Math.floor(Math.random() * tips.length)];
-      if (point.detached) continue;
+      if (point.detached || point.born === null ||
+          elapsed - point.born < FORMATION_TRAVEL) continue;
       const location = displaced(point, elapsed);
-      // One orthogonal outward step separates the source before unbiased walking.
+      // One orthogonal outward step separates the source before walking.
       const outward = Math.abs(point.outX) >= Math.abs(point.outY) ?
         [Math.sign(point.outX) || 1, 0] : [0, Math.sign(point.outY) || 1];
       point.detached = true;
@@ -255,6 +288,7 @@
       walkers.push({ source: point, sourceReal: point.real, sourceImaginary: point.imaginary,
         tone: point.tone, alpha: point.alpha, real, imaginary,
         outX: point.outX, outY: point.outY,
+        previous: outward, run: 1,
         born: elapsed, lifetime: 14 + Math.random() * 6,
         nextStep: elapsed + STEP_TIME, active: true,
         trail: [{ ...start, born: elapsed }, { real, imaginary, born: elapsed }] });
@@ -268,16 +302,12 @@
     const distance = Math.hypot(walker.real - walker.sourceReal,
       walker.imaginary - walker.sourceImaginary) / (PIXEL_SIZE * SCENE_SCALE);
     const beta = 0.65 * Math.exp(-distance / 24);
-    const weights = WALK_DIRECTIONS.map(([dx, dy]) =>
-      Math.exp(beta * (dx * walker.outX + dy * walker.outY)));
-    const total = weights.reduce((sum, weight) => sum + weight, 0);
-    let draw = Math.random() * total;
-    let choice = WALK_DIRECTIONS.length - 1;
-    for (let i = 0; i < weights.length; i += 1) {
-      draw -= weights[i];
-      if (draw < 0) { choice = i; break; }
-    }
-    const [dx, dy] = WALK_DIRECTIONS[choice];
+    const direction = window.PixelWalkers.direction(walker.outX, walker.outY,
+      beta, walker.previous, walker.run);
+    const [dx, dy] = direction;
+    walker.run = dx === walker.previous[0] && dy === walker.previous[1] ?
+      walker.run + 1 : 1;
+    walker.previous = direction;
     walker.real += dx * PIXEL_SIZE * SCENE_SCALE;
     walker.imaginary += dy * PIXEL_SIZE * SCENE_SCALE;
     walker.trail.push({ real: walker.real, imaginary: walker.imaginary, born: elapsed });
@@ -293,11 +323,13 @@
         walker.nextStep += STEP_TIME;
         moveWalker(walker);
       }
-      walker.trail = walker.trail.filter((point) => elapsed - point.born < TRAIL_TIME);
+      walker.trail = window.PixelWalkers.keepTrail(walker.trail, elapsed, TRAIL_TIME);
     }
     walkers = walkers.filter((walker) => walker.active || walker.trail.length);
     if (elapsed >= nextSpawn) {
-      spawnWalker();
+      const emission = Math.max(0, Math.min(1,
+        (elapsed - FORMATION_TIME * 0.8) / 1.9));
+      if (Math.random() < emission) spawnWalker();
       nextSpawn = elapsed + 0.48 + Math.random() * 0.08;
     }
   }
@@ -313,28 +345,82 @@
     frameImage.data[offset + 3] = alpha;
   }
 
+  function formationWave(pixel) {
+    const formationTime = Math.min(elapsed, FORMATION_TIME);
+    const envelope = Math.sin(Math.PI * formationTime / FORMATION_TIME);
+    const wave = formationTime / FORMATION_TIME + envelope * (
+      0.21 * Math.sin(pixel.phases[0] - elapsed * MOTION_SPEEDS[0]) +
+      0.11 * Math.sin(pixel.phases[1] - elapsed * MOTION_SPEEDS[1]));
+    const threshold = 0.08 + 0.55 * (1 - pixel.strength);
+    return wave > threshold;
+  }
+
+  function formationPosition(pixel, animate) {
+    if (!animate) {
+      pixel.born = elapsed - FORMATION_TRAVEL;
+      pixel.fromX = pixel.x; pixel.fromY = pixel.y;
+      return pixel;
+    }
+    if (pixel.born === null) {
+      if (!formationWave(pixel)) return null;
+      pixel.born = elapsed;
+      // A newly introduced cell comes from a nearby visible Julia cell.
+      // Isolated cells use their own local tangent as a short entry path.
+      let source = null, best = Infinity;
+      for (let dy = -3; dy <= 3; dy += 1) {
+        for (let dx = -3; dx <= 3; dx += 1) {
+          if (!dx && !dy) continue;
+          const x = pixel.x + dx, y = pixel.y + dy;
+          if (x < 0 || x >= columns || y < 0 || y >= rows) continue;
+          const candidate = formationLookup[y * columns + x];
+          if (!candidate || candidate.born === null || candidate === pixel ||
+              candidate.detached || candidate.tone === 5) continue;
+          const phaseGap = 1 - Math.cos(candidate.phases[1] - pixel.phases[1]);
+          const settling = Math.max(0,
+            FORMATION_TRAVEL - (elapsed - candidate.born)) / FORMATION_TRAVEL;
+          const score = dx * dx + dy * dy + 2 * phaseGap + settling;
+          if (score < best) { source = candidate; best = score; }
+        }
+      }
+      if (source) {
+        const location = formationPosition(source, true);
+        pixel.fromX = location.x;
+        pixel.fromY = location.y;
+      } else {
+        const tangent = pixel.directions ? pixel.directions[1] : pixel.entry;
+        pixel.fromX = pixel.x - tangent.x * 2.5;
+        pixel.fromY = pixel.y - tangent.y * 2.5;
+      }
+    }
+    const target = pixel.directions ? displaced(pixel, elapsed) : pixel;
+    const progress = Math.max(0, Math.min(1,
+      (elapsed - pixel.born) / FORMATION_TRAVEL));
+    const arrival = 1 - (1 - progress) ** 3;
+    return { x: Math.round(pixel.fromX + (target.x - pixel.fromX) * arrival),
+      y: Math.round(pixel.fromY + (target.y - pixel.fromY) * arrival) };
+  }
+
   function drawFrame(animate) {
     if (animate) updateWalkers();
     frameImage.data.fill(0);
     for (const pixel of fieldPixels) {
-      paintPixel(pixel.x, pixel.y, pixel.tone, pixel.alpha);
+      const location = formationPosition(pixel, animate);
+      if (location) paintPixel(location.x, location.y, pixel.tone, pixel.alpha);
     }
     for (const point of boundary) {
       if (point.detached) continue;
-      const location = animate ? displaced(point, elapsed) : point;
-      paintPixel(location.x, location.y, point.tone, point.alpha);
+      const location = formationPosition(point, animate);
+      if (location) paintPixel(location.x, location.y, point.tone, point.alpha);
     }
     if (animate) {
       for (const walker of walkers) {
         for (const point of walker.trail) {
-          const age = (elapsed - point.born) / TRAIL_TIME;
-          const fade = (1 - age) ** 2;
+          const fade = window.PixelWalkers.fade(elapsed - point.born, TRAIL_TIME);
           const cell = cellAt(point.real, point.imaginary);
           paintPixel(cell.x, cell.y, walker.tone, Math.round(walker.alpha * 0.8 * fade));
         }
         if (walker.active) {
-          const age = (elapsed - walker.born) / walker.lifetime;
-          const fade = (1 - age) ** 2;
+          const fade = window.PixelWalkers.fade(elapsed - walker.born, walker.lifetime);
           const cell = cellAt(walker.real, walker.imaginary);
           paintPixel(cell.x, cell.y, walker.tone, Math.round(walker.alpha * fade));
         }
@@ -384,7 +470,7 @@
     startAnimation();
   }
 
-  prepareField(); drawFrame(false);
+  prepareField(); drawFrame(!reducedMotion.matches);
   startAnimation();
   window.addEventListener("resize", queueResize);
   if (window.visualViewport) window.visualViewport.addEventListener("resize", queueResize);
