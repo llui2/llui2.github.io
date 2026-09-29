@@ -9,8 +9,7 @@
   const ANIMATION_SIZE = 2300;
   const JULIA_OFFSET = (ANIMATION_SIZE - JULIA_SIZE) / (2 * PIXEL_SIZE);
   const ANIMATION_COLUMNS = ANIMATION_SIZE / PIXEL_SIZE;
-  const COLUMNS = JULIA_SIZE / PIXEL_SIZE;
-  const ROWS = COLUMNS;
+  const columns = JULIA_SIZE / PIXEL_SIZE;
   const ORIGIN_X = 460;
   const ORIGIN_Y = 460;
   const MAX_ITERATIONS = 120;
@@ -21,9 +20,11 @@
   const FORMATION_TIME = 4.5;
   const FORMATION_TRAVEL = 0.85;
   const SCENE_SCALE = 1.65 / 900;
-  const MOTION_SPEEDS = [0.18, 0.27, 0.39];
-  const MOTION_STRENGTHS = [1.05, 0.68, 0.22];
-  const SCALE_PHASE_LAG = [0, 0.13, 0.26];
+  const SCALES = [
+    { radius: 18, phase: 0.72, speed: 0.18, strength: 1.05, lag: 0 },
+    { radius: 7, phase: 0.9, speed: 0.27, strength: 0.68, lag: 0.13 },
+    { radius: 2, phase: 1.05, speed: 0.39, strength: 0.22, lag: 0.26 },
+  ];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
@@ -34,7 +35,6 @@
   const background = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
   const tones = [orange.map((v) => Math.max(0, Math.round(v * 0.88))), orange,
     lighten(0.18), lighten(0.38), lighten(0.58), background];
-  const columns = COLUMNS, rows = ROWS;
   let frameImage, boundary = [], fieldPixels = [], tips = [], walkers = [];
   let formationLookup;
   let elapsed = 0, nextSpawn = 0.5, lastFrame = 0;
@@ -54,11 +54,11 @@
     canvas.width = ANIMATION_COLUMNS; canvas.height = ANIMATION_COLUMNS;
     context.imageSmoothingEnabled = false;
     frameImage = context.createImageData(ANIMATION_COLUMNS, ANIMATION_COLUMNS);
-    const escape = new Uint8Array(columns * rows);
-    const smooth = new Float32Array(columns * rows);
-    const orbitCos = new Float32Array(columns * rows);
-    const orbitSin = new Float32Array(columns * rows);
-    for (let y = 0; y < rows; y += 1) {
+    const escape = new Uint8Array(columns * columns);
+    const smooth = new Float32Array(columns * columns);
+    const orbitCos = new Float32Array(columns * columns);
+    const orbitSin = new Float32Array(columns * columns);
+    for (let y = 0; y < columns; y += 1) {
       for (let x = 0; x < columns; x += 1) {
         const position = complexAt(x, y);
         let real = position.real, imaginary = position.imaginary, iteration = 0;
@@ -81,7 +81,7 @@
         orbitSin[at] = angleY / angleLength;
       }
     }
-    for (let y = 1; y < rows - 1; y += 1) {
+    for (let y = 1; y < columns - 1; y += 1) {
       for (let x = 1; x < columns - 1; x += 1) {
         let sum = 0;
         for (let dy = -1; dy <= 1; dy += 1) {
@@ -92,10 +92,10 @@
     }
     // Integral image makes several geometry scales cheap to sample once at initialization.
     const stride = columns + 1;
-    const integral = new Float64Array(stride * (rows + 1));
-    const orbitCosIntegral = new Float64Array(stride * (rows + 1));
-    const orbitSinIntegral = new Float64Array(stride * (rows + 1));
-    for (let y = 0; y < rows; y += 1) {
+    const integral = new Float64Array(stride * stride);
+    const orbitCosIntegral = new Float64Array(stride * stride);
+    const orbitSinIntegral = new Float64Array(stride * stride);
+    for (let y = 0; y < columns; y += 1) {
       let running = 0, runningCos = 0, runningSin = 0;
       for (let x = 0; x < columns; x += 1) {
         const at = y * columns + x;
@@ -110,34 +110,29 @@
     }
     function averageFrom(source, x, y, radius) {
       const left = Math.max(0, x - radius), right = Math.min(columns - 1, x + radius);
-      const top = Math.max(0, y - radius), bottom = Math.min(rows - 1, y + radius);
+      const top = Math.max(0, y - radius), bottom = Math.min(columns - 1, y + radius);
       const sum = source[(bottom + 1) * stride + right + 1] -
         source[top * stride + right + 1] -
         source[(bottom + 1) * stride + left] + source[top * stride + left];
       return sum / ((right - left + 1) * (bottom - top + 1));
-    }
-    function average(x, y, radius) {
-      return averageFrom(integral, x, y, radius);
     }
     function orbitAngle(x, y, radius) {
       return Math.atan2(averageFrom(orbitSinIntegral, x, y, radius),
         averageFrom(orbitCosIntegral, x, y, radius));
     }
     function tangent(x, y, radius) {
-      const gx = average(x + 1, y, radius) - average(x - 1, y, radius);
-      const gy = average(x, y + 1, radius) - average(x, y - 1, radius);
+      const gx = averageFrom(integral, x + 1, y, radius) - averageFrom(integral, x - 1, y, radius);
+      const gy = averageFrom(integral, x, y + 1, radius) - averageFrom(integral, x, y - 1, radius);
       const length = Math.hypot(gx, gy);
       return length > 0.001 ? { x: -gy / length, y: gx / length } : null;
     }
     function phasesAt(x, y) {
-      return [orbitAngle(x, y, 18) * 0.72,
-        orbitAngle(x, y, 7) * 0.9,
-        orbitAngle(x, y, 2) * 1.05];
+      return SCALES.map(({ radius, phase }) => orbitAngle(x, y, radius) * phase);
     }
     boundary = [];
     fieldPixels = [];
     const candidates = [];
-    for (let y = 2; y < rows - 2; y += 1) {
+    for (let y = 2; y < columns - 2; y += 1) {
       for (let x = 2; x < columns - 2; x += 1) {
         const value = escape[y * columns + x];
         const field = smooth[y * columns + x];
@@ -177,7 +172,6 @@
         // versions carry related angular motion through nested structures.
         const point = {
           x, y,
-          tx: fallback.x, ty: fallback.y,
           directions: [large || fallback, medium || fallback, fine || fallback],
           phases,
           tone, alpha, strength: depth, born: null,
@@ -211,7 +205,7 @@
         if (tips.length >= 220) break;
       }
     }
-    formationLookup = new Array(columns * rows);
+    formationLookup = new Array(columns * columns);
     for (const pixel of fieldPixels.concat(boundary)) {
       formationLookup[pixel.y * columns + pixel.x] = pixel;
     }
@@ -220,7 +214,7 @@
   function motionPhase(point, time, scale) {
     const phase = point.phases[scale];
     const other = point.phases[(scale + 1) % 3];
-    return phase + SCALE_PHASE_LAG[scale] - time * MOTION_SPEEDS[scale] +
+    return phase + SCALES[scale].lag - time * SCALES[scale].speed +
       0.26 * Math.sin(time * (0.083 + scale * 0.028) + other) +
       0.14 * Math.sin(time * (0.053 + scale * 0.014) - phase);
   }
@@ -230,7 +224,7 @@
     for (let scale = 0; scale < 3; scale += 1) {
       const angle = motionPhase(point, time, scale);
       const direction = point.directions[scale];
-      const strength = MOTION_STRENGTHS[scale];
+      const strength = SCALES[scale].strength;
       dx += strength * (direction.x * Math.sin(angle) -
         direction.y * 0.28 * Math.cos(angle));
       dy += strength * (direction.y * Math.sin(angle) +
@@ -316,8 +310,8 @@
     const formationTime = Math.min(elapsed, FORMATION_TIME);
     const envelope = Math.sin(Math.PI * formationTime / FORMATION_TIME);
     const wave = formationTime / FORMATION_TIME + envelope * (
-      0.21 * Math.sin(pixel.phases[0] - elapsed * MOTION_SPEEDS[0]) +
-      0.11 * Math.sin(pixel.phases[1] - elapsed * MOTION_SPEEDS[1]));
+      0.21 * Math.sin(pixel.phases[0] - elapsed * SCALES[0].speed) +
+      0.11 * Math.sin(pixel.phases[1] - elapsed * SCALES[1].speed));
     const threshold = 0.08 + 0.55 * (1 - pixel.strength) -
       0.025 * pixel.strength;
     return wave > threshold;
@@ -339,7 +333,7 @@
         for (let dx = -3; dx <= 3; dx += 1) {
           if (!dx && !dy) continue;
           const x = pixel.x + dx, y = pixel.y + dy;
-          if (x < 0 || x >= columns || y < 0 || y >= rows) continue;
+          if (x < 0 || x >= columns || y < 0 || y >= columns) continue;
           const candidate = formationLookup[y * columns + x];
           if (!candidate || candidate.born === null || candidate === pixel ||
               candidate.detached || candidate.tone === 5) continue;

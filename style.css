@@ -15,6 +15,7 @@ html,
 body {
   min-height: 100%;
   overscroll-behavior-y: none;
+  overflow-x: clip;
 }
 
 html {
@@ -33,7 +34,6 @@ body {
     "Liberation Mono", "Courier New", monospace;
   font-size: calc(1rem + 1px);
   line-height: 1.5;
-  overflow-x: hidden;
   position: relative;
 }
 
