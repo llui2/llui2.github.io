@@ -35,22 +35,12 @@ body {
   position: relative;
 }
 
-.random-walk-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: block;
-  z-index: 0;
-  pointer-events: none;
-  contain: layout paint style;
-}
-
 .julia-canvas {
   position: fixed;
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 110vh;
+  top: -15px;
+  left: -15px;
+  width: calc(100% + 30px);
+  height: calc(100dvh + 30px);
   z-index: 0;
   pointer-events: none;
   background: transparent;
