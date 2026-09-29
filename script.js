@@ -7,6 +7,11 @@
 document.documentElement.classList.add("js");
 
 (function () {
+  // The homepage has its own static Julia field.
+  if (document.body.classList.contains("home-page")) {
+    return;
+  }
+
   // Disable the background animation when reduced motion is requested.
   const reducedMotion =
     window.matchMedia &&

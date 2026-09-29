@@ -45,6 +45,19 @@ body {
   contain: layout paint style;
 }
 
+.julia-canvas {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 110vh;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+  opacity: 0.5;
+  image-rendering: pixelated;
+}
+
 header,
 main,
 footer {

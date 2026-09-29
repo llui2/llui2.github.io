@@ -11,12 +11,15 @@
   <link rel="apple-touch-icon" href="/images/window.png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="home-page">
   <div data-include="/includes/header.html"></div>
+
+  <canvas class="julia-canvas" aria-hidden="true"></canvas>
 
   <main>
     <section>
       <div class="markdown" data-md="content.md" aria-live="polite">
+        <p>PhD researcher working on structural approaches to dynamical systems and networks.</p>
         <h1><a href="/research/">research</a></h1>
         <h1><a href="/notes/">notes</a></h1>
       </div>
@@ -24,5 +27,6 @@
   </main>
 
   <script src="script.js"></script>
+  <script src="julia.js"></script>
 </body>
 </html>
