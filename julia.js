@@ -15,8 +15,6 @@
   const MAX_ITERATIONS = 120;
   const EDGE_START = 16;
   const FPS = 15;
-  const STEP_TIME = 0.14;
-  const TRAIL_TIME = 42;
   const FORMATION_TIME = 4.5;
   const FORMATION_TRAVEL = 0.85;
   const SCENE_SCALE = 1.65 / 900;
@@ -35,9 +33,9 @@
   const background = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
   const tones = [orange.map((v) => Math.max(0, Math.round(v * 0.88))), orange,
     lighten(0.18), lighten(0.38), lighten(0.58), background];
-  let frameImage, boundary = [], fieldPixels = [], tips = [], walkers = [];
+  let frameImage, boundary = [], fieldPixels = [];
   let formationLookup;
-  let elapsed = 0, nextSpawn = 0.5, lastFrame = 0;
+  let elapsed = 0, lastFrame = 0;
   let frameRequest = 0;
   let hidden = document.hidden;
 
@@ -131,7 +129,6 @@
     }
     boundary = [];
     fieldPixels = [];
-    const candidates = [];
     for (let y = 2; y < columns - 2; y += 1) {
       for (let x = 2; x < columns - 2; x += 1) {
         const value = escape[y * columns + x];
@@ -154,9 +151,6 @@
             phases, entry, strength: weight * 0.25, born: null });
         }
         if (!isEdge(value)) continue;
-        const gx = smooth[y * columns + x + 1] - smooth[y * columns + x - 1];
-        const gy = smooth[(y + 1) * columns + x] - smooth[(y - 1) * columns + x];
-        const gradient = Math.hypot(gx, gy);
         // Color is a permanent property of the local escape field, independent
         // of amplitude, phase, speed, and current displacement.
         const depth = Math.max(0, Math.min(1, (field - EDGE_START) / 76));
@@ -175,34 +169,8 @@
           directions: [large || fallback, medium || fallback, fine || fallback],
           phases,
           tone, alpha, strength: depth, born: null,
-          detached: false,
         };
         boundary.push(point);
-        let edgeNeighbors = 0, exterior = 0, nx = 0, ny = 0;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (!dx && !dy) continue;
-            const nearby = escape[(y + dy) * columns + x + dx];
-            if (isEdge(nearby)) { edgeNeighbors += 1; nx += dx; ny += dy; }
-            else if (nearby < EDGE_START) exterior += 1;
-          }
-        }
-        if (value >= 22 && edgeNeighbors >= 1 && edgeNeighbors <= 5 &&
-            exterior >= 2 && gradient > 2) {
-          const length = Math.hypot(nx, ny) || 1;
-          point.outX = -nx / length;
-          point.outY = -ny / length;
-          candidates.push({ point, score: gradient + (8 - edgeNeighbors) * 3 + value * 0.2 });
-        }
-      }
-    }
-    candidates.sort((a, b) => b.score - a.score);
-    tips = [];
-    for (const candidate of candidates) {
-      if (tips.every((point) => (point.x - candidate.point.x) ** 2 +
-          (point.y - candidate.point.y) ** 2 > 36)) {
-        tips.push(candidate.point);
-        if (tips.length >= 220) break;
       }
     }
     formationLookup = new Array(columns * columns);
@@ -233,66 +201,6 @@
     const length = Math.hypot(dx, dy);
     if (length > 2) { dx *= 2 / length; dy *= 2 / length; }
     return { x: Math.round(point.x + dx), y: Math.round(point.y + dy) };
-  }
-
-  function spawnWalker() {
-    if (walkers.filter((walker) => walker.active).length >= 35 || !tips.length) return;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
-      const point = tips[Math.floor(Math.random() * tips.length)];
-      if (point.detached || point.born === null ||
-          elapsed - point.born < FORMATION_TRAVEL) continue;
-      const location = displaced(point, elapsed);
-      // One orthogonal outward step separates the source before walking.
-      const outward = Math.abs(point.outX) >= Math.abs(point.outY) ?
-        [Math.sign(point.outX) || 1, 0] : [0, Math.sign(point.outY) || 1];
-      point.detached = true;
-      const start = { x: location.x + JULIA_OFFSET, y: location.y + JULIA_OFFSET };
-      const x = start.x + outward[0], y = start.y + outward[1];
-      walkers.push({ source: point, sourceX: start.x, sourceY: start.y,
-        tone: point.tone, alpha: point.alpha, x, y,
-        outX: point.outX, outY: point.outY,
-        previous: outward, run: 1,
-        born: elapsed, lifetime: 14 + Math.random() * 6,
-        nextStep: elapsed + STEP_TIME, active: true,
-        trail: [{ ...start, born: elapsed }, { x, y, born: elapsed }] });
-      return;
-    }
-  }
-
-  function moveWalker(walker) {
-    // A mild cardinal-choice bias fades with distance from the source.
-    // Every chosen move remains exactly one orthogonal lattice cell.
-    const distance = Math.hypot(walker.x - walker.sourceX, walker.y - walker.sourceY);
-    const beta = 0.65 * Math.exp(-distance / 24);
-    const direction = window.PixelWalkers.direction(walker.outX, walker.outY,
-      beta, walker.previous, walker.run);
-    const [dx, dy] = direction;
-    walker.run = dx === walker.previous[0] && dy === walker.previous[1] ?
-      walker.run + 1 : 1;
-    walker.previous = direction;
-    walker.x += dx; walker.y += dy;
-    walker.trail.push({ x: walker.x, y: walker.y, born: elapsed });
-  }
-
-  function updateWalkers() {
-    for (const walker of walkers) {
-      if (walker.active && elapsed - walker.born >= walker.lifetime) {
-        walker.active = false;
-        if (walker.source) walker.source.detached = false;
-      }
-      while (walker.active && elapsed >= walker.nextStep) {
-        walker.nextStep += STEP_TIME;
-        moveWalker(walker);
-      }
-      walker.trail = window.PixelWalkers.keepTrail(walker.trail, elapsed, TRAIL_TIME);
-    }
-    walkers = walkers.filter((walker) => walker.active || walker.trail.length);
-    if (elapsed >= nextSpawn) {
-      const emission = Math.max(0, Math.min(1,
-        (elapsed - FORMATION_TIME * 0.8) / 1.9));
-      if (Math.random() < emission) spawnWalker();
-      nextSpawn = elapsed + 0.48 + Math.random() * 0.08;
-    }
   }
 
   function paintPixel(x, y, tone, alpha) {
@@ -336,7 +244,7 @@
           if (x < 0 || x >= columns || y < 0 || y >= columns) continue;
           const candidate = formationLookup[y * columns + x];
           if (!candidate || candidate.born === null || candidate === pixel ||
-              candidate.detached || candidate.tone === 5) continue;
+              candidate.tone === 5) continue;
           const phaseGap = 1 - Math.cos(candidate.phases[1] - pixel.phases[1]);
           const settling = Math.max(0,
             FORMATION_TRAVEL - (elapsed - candidate.born)) / FORMATION_TRAVEL;
@@ -363,7 +271,6 @@
   }
 
   function drawFrame(animate) {
-    if (animate) updateWalkers();
     frameImage.data.fill(0);
     for (const pixel of fieldPixels) {
       const location = formationPosition(pixel, animate);
@@ -371,28 +278,11 @@
         pixel.tone, pixel.alpha);
     }
     for (const point of boundary) {
-      if (point.detached) continue;
       const location = formationPosition(point, animate);
       if (location) paintPixel(location.x + JULIA_OFFSET, location.y + JULIA_OFFSET,
         point.tone, point.alpha);
     }
-    drawWalkers(animate);
     context.putImageData(frameImage, 0, 0);
-  }
-
-  function drawWalkers(animate) {
-    if (animate) {
-      for (const walker of walkers) {
-        for (const point of walker.trail) {
-          const fade = window.PixelWalkers.fade(elapsed - point.born, TRAIL_TIME);
-          paintPixel(point.x, point.y, walker.tone, Math.round(walker.alpha * 0.8 * fade));
-        }
-        if (walker.active) {
-          const fade = window.PixelWalkers.fade(elapsed - walker.born, walker.lifetime);
-          paintPixel(walker.x, walker.y, walker.tone, Math.round(walker.alpha * fade));
-        }
-      }
-    }
   }
 
   function stopAnimation() {

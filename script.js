@@ -1,7 +1,8 @@
 // Shared HTML, Markdown, note navigation, and math loaders.
 document.documentElement.classList.add("js");
+const initialContentLoads = [];
 
-// Small shared rules for Julia-born and standalone pixel walkers.
+// Cardinal movement for persistent pixel walkers.
 window.PixelWalkers = (function () {
   const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   function direction(outX = 0, outY = 0, beta = 0, previous = null,
@@ -28,13 +29,7 @@ window.PixelWalkers = (function () {
     }
     return directions.find(([dx, dy]) => allowed(dx, dy)) || directions[3];
   }
-  function fade(age, lifetime) {
-    return Math.max(0, 1 - age / lifetime) ** 2;
-  }
-  function keepTrail(trail, now, lifetime) {
-    return trail.filter((point) => now - point.born < lifetime);
-  }
-  return { direction, fade, keepTrail };
+  return { direction };
 })();
 
 (function () {
@@ -53,7 +48,8 @@ window.PixelWalkers = (function () {
   const FIELD_WIDTH = 3000;
   const FIELD_TOP = 800, FIELD_LEFT = 980;
   const columns = FIELD_WIDTH / SIZE;
-  const TRAIL_TIME = 42, COUNT = 15;
+  // Keep a long, fixed-length path: each new step removes the oldest tail cell.
+  const MAX_TRAIL_POINTS = 200, COUNT = 15;
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
   const orange = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -62,28 +58,47 @@ window.PixelWalkers = (function () {
   let rows = 0, frameImage, walkers = [];
   let elapsed = 0, lastFrame = 0, frameRequest = 0;
 
-  function newWalker() {
-    const x = Math.floor((FIELD_LEFT - 200 +
-      Math.random() * 1440) / SIZE);
-    const spawnHeight = Math.max(1000, main.offsetHeight);
-    const y = Math.floor((FIELD_TOP +
-      Math.random() * spawnHeight) / SIZE);
+  function spawnBounds() {
+    const rect = main.getBoundingClientRect();
+    const pageHeight = Math.max(window.innerHeight,
+      document.body.offsetHeight);
+    const left = Math.max(0, FIELD_LEFT - rect.left);
+    const right = Math.min(FIELD_WIDTH,
+      FIELD_LEFT - rect.left + document.documentElement.clientWidth);
+    const top = Math.max(0, FIELD_TOP - rect.top - window.scrollY);
+    const bottom = FIELD_TOP - rect.top - window.scrollY + pageHeight;
+    return { left, right, top, bottom };
+  }
+
+  function newWalker(index, bounds) {
+    // Stratify the actual page area; jitter keeps reloads varied without clumps.
+    const width = bounds.right - bounds.left;
+    const height = bounds.bottom - bounds.top;
+    const gridColumns = width > height ? 5 : 3;
+    const gridRows = COUNT / gridColumns;
+    const column = index % gridColumns;
+    const row = Math.floor(index / gridColumns);
+    const x = Math.floor((bounds.left +
+      (column + 0.2 + Math.random() * 0.6) * width / gridColumns) / SIZE);
+    const y = Math.floor((bounds.top +
+      (row + 0.2 + Math.random() * 0.6) * height / gridRows) / SIZE);
     const previous = window.PixelWalkers.direction();
     return { x, y, tone: Math.floor(Math.random() * tones.length),
       previous, run: 0,
-      born: elapsed, lifetime: 18 + Math.random() * 6, nextStep: elapsed + STEP_TIME,
-      trail: [{ x, y, born: elapsed }] };
+      nextStep: elapsed + STEP_TIME, trail: [{ x, y }] };
   }
 
   function extendForContent() {
-    const requiredRows = Math.ceil((FIELD_TOP + main.offsetHeight + 100) / SIZE);
+    const bounds = spawnBounds();
+    const requiredRows = Math.ceil(Math.max(FIELD_TOP + main.offsetHeight + 100,
+      bounds.bottom + 100) / SIZE);
     if (requiredRows <= rows && frameImage) return;
     rows = Math.max(rows, requiredRows);
     canvas.height = rows;
     canvas.style.height = `${rows * SIZE}px`;
     context.imageSmoothingEnabled = false;
     frameImage = context.createImageData(columns, rows);
-    while (walkers.length < COUNT) walkers.push(newWalker());
+    while (walkers.length < COUNT) walkers.push(newWalker(walkers.length, bounds));
     draw();
   }
 
@@ -103,19 +118,16 @@ window.PixelWalkers = (function () {
     frameImage.data.fill(0);
     for (const walker of walkers) {
       for (const point of walker.trail) {
-        const alpha = Math.round(85 * window.PixelWalkers.fade(elapsed - point.born, TRAIL_TIME));
-        paint(point.x, point.y, walker.tone, alpha);
+        paint(point.x, point.y, walker.tone, 85);
       }
-      if (elapsed - walker.born < walker.lifetime) {
-        paint(walker.x, walker.y, walker.tone, 100);
-      }
+      paint(walker.x, walker.y, walker.tone, 100);
     }
     context.putImageData(frameImage, 0, 0);
   }
 
   function update() {
     for (const walker of walkers) {
-      while (elapsed >= walker.nextStep && elapsed - walker.born < walker.lifetime) {
+      while (elapsed >= walker.nextStep) {
         const direction = window.PixelWalkers.direction(0, 0, 0,
           walker.previous, walker.run,
           (dx, dy) => walker.x + dx >= 0 && walker.x + dx < columns &&
@@ -126,14 +138,13 @@ window.PixelWalkers = (function () {
         walker.previous = direction;
         walker.x += dx;
         walker.y += dy;
-        walker.trail.push({ x: walker.x, y: walker.y, born: walker.nextStep });
+        walker.trail.push({ x: walker.x, y: walker.y });
         walker.nextStep += STEP_TIME;
       }
-      walker.trail = window.PixelWalkers.keepTrail(walker.trail, elapsed, TRAIL_TIME);
+      if (walker.trail.length > MAX_TRAIL_POINTS) {
+        walker.trail.splice(0, walker.trail.length - MAX_TRAIL_POINTS);
+      }
     }
-    walkers = walkers.filter((walker) => walker.trail.length);
-    const active = walkers.filter((walker) => elapsed - walker.born < walker.lifetime).length;
-    for (let i = active; i < COUNT; i += 1) walkers.push(newWalker());
   }
 
   function tick(now) {
@@ -146,7 +157,7 @@ window.PixelWalkers = (function () {
     update(); draw(); start();
   }
   function start() {
-    if (!frameRequest && !document.hidden && !reducedMotion.matches) {
+    if (ready && !frameRequest && !document.hidden && !reducedMotion.matches) {
       frameRequest = requestAnimationFrame(tick);
     }
   }
@@ -156,20 +167,34 @@ window.PixelWalkers = (function () {
   }
   canvas.width = columns;
   canvas.style.width = `${FIELD_WIDTH}px`;
-  if (!reducedMotion.matches) {
-    main.prepend(canvas);
-    extendForContent(); start();
-  }
-  const contentObserver = new ResizeObserver(extendForContent);
+  let ready = false;
+  const contentObserver = new ResizeObserver(() => {
+    if (ready) extendForContent();
+  });
   contentObserver.observe(main);
+  // The shared loaders register their requests later in this script.
+  Promise.resolve().then(async () => {
+    let loaded = 0;
+    while (loaded < initialContentLoads.length) {
+      const batch = initialContentLoads.slice(loaded);
+      loaded += batch.length;
+      await Promise.allSettled(batch);
+    }
+  }).then(() => {
+    ready = true;
+    if (!reducedMotion.matches) {
+      main.prepend(canvas);
+      extendForContent(); start();
+    }
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stop(); else { extendForContent(); start(); }
+    if (document.hidden) stop(); else if (ready) { extendForContent(); start(); }
   });
   window.addEventListener("pagehide", stop);
   window.addEventListener("pageshow", start);
   reducedMotion.addEventListener("change", () => {
     if (reducedMotion.matches) { stop(); canvas.remove(); }
-    else { main.prepend(canvas); extendForContent(); start(); }
+    else if (ready) { main.prepend(canvas); extendForContent(); start(); }
   });
 })();
 
@@ -182,7 +207,7 @@ window.PixelWalkers = (function () {
       if (!path) {
         return;
       }
-      fetch(path)
+      initialContentLoads.push(fetch(path)
         .then(function (response) {
           if (!response.ok) {
             throw new Error("Failed to load include");
@@ -194,7 +219,7 @@ window.PixelWalkers = (function () {
         })
         .catch(function () {
           node.outerHTML = "";
-        });
+        }));
     });
   }
 
@@ -423,7 +448,7 @@ window.PixelWalkers = (function () {
     const fallback =
       "<p>Notes failed to load. Check the Markdown file path.</p>";
 
-    fetch(path)
+    initialContentLoads.push(fetch(path)
       .then(function (response) {
         if (!response.ok) {
           throw new Error("Failed to load markdown");
@@ -436,7 +461,7 @@ window.PixelWalkers = (function () {
       })
       .catch(function () {
         target.innerHTML = fallback;
-      });
+      }));
   }
 
   function renderTarget(target) {
@@ -594,7 +619,7 @@ window.PixelWalkers = (function () {
     }
 
     // The index supplies the available notes and their display order.
-    fetch(source)
+    initialContentLoads.push(fetch(source)
       .then(function (response) {
         if (!response.ok) {
           throw new Error("Failed to load notes index");
@@ -629,7 +654,7 @@ window.PixelWalkers = (function () {
         if (defaultFile) {
           renderMarkdownInto(reader, defaultFile);
         }
-      });
+      }));
   }
 
   targets.forEach(renderTarget);
