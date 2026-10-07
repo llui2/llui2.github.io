@@ -53,8 +53,6 @@ window.PixelWalkers = (function () {
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const hex = /^#[0-9a-f]{6}$/i.test(accent) ? accent : "#fc4c02";
   const orange = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const tones = [orange, ...[0.22, 0.42, 0.6].map((amount) =>
-    orange.map((value) => Math.round(value + (255 - value) * amount)))];
   let rows = 0, frameImage, walkers = [];
   let elapsed = 0, lastFrame = 0, frameRequest = 0;
 
@@ -83,7 +81,7 @@ window.PixelWalkers = (function () {
     const y = Math.floor((bounds.top +
       (row + 0.2 + Math.random() * 0.6) * height / gridRows) / SIZE);
     const previous = window.PixelWalkers.direction();
-    return { x, y, tone: Math.floor(Math.random() * tones.length),
+    return { x, y,
       previous, run: 0,
       nextStep: elapsed + STEP_TIME, trail: [{ x, y }] };
   }
@@ -102,14 +100,13 @@ window.PixelWalkers = (function () {
     draw();
   }
 
-  function paint(x, y, tone, alpha) {
+  function paint(x, y, alpha) {
     if (x < 0 || x >= columns || y < 0 || y >= rows || alpha <= 0) return;
     const at = (y * columns + x) * 4;
     if (alpha <= frameImage.data[at + 3]) return;
-    const color = tones[tone];
-    frameImage.data[at] = color[0];
-    frameImage.data[at + 1] = color[1];
-    frameImage.data[at + 2] = color[2];
+    frameImage.data[at] = orange[0];
+    frameImage.data[at + 1] = orange[1];
+    frameImage.data[at + 2] = orange[2];
     frameImage.data[at + 3] = alpha;
   }
 
@@ -117,10 +114,14 @@ window.PixelWalkers = (function () {
     if (!frameImage) return;
     frameImage.data.fill(0);
     for (const walker of walkers) {
-      for (const point of walker.trail) {
-        paint(point.x, point.y, walker.tone, 85);
+      for (let i = 0; i < walker.trail.length; i += 1) {
+        const point = walker.trail[i];
+        // Shade by distance behind the head, rather than the walker's lifetime.
+        const progress = 1 - (walker.trail.length - 1 - i) / (MAX_TRAIL_POINTS - 1);
+        const alpha = Math.round(12 + 73 * progress ** 2);
+        paint(point.x, point.y, alpha);
       }
-      paint(walker.x, walker.y, walker.tone, 100);
+      paint(walker.x, walker.y, 100);
     }
     context.putImageData(frameImage, 0, 0);
   }
