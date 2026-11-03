@@ -1,4 +1,4 @@
-I work on collective dynamics, with an interest in how it relates to physical systems.
+I work on collective dynamics, exploring how it relates to physical systems.
 
 My research interests include:
 
