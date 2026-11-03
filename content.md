@@ -1,4 +1,4 @@
-I work on collective dynamics, with a focus on how interactions shape the behaviour of physical systems.
+I work on collective dynamics, with an interest in how it relates to physical systems.
 
 My research interests include:
 
