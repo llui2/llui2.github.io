@@ -9,19 +9,56 @@
   <link rel="canonical" href="https://llui2.github.io/meta/">
   <link rel="icon" type="image/png" href="/images/window.png">
   <link rel="apple-touch-icon" href="/images/window.png">
-  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../style.css?v=20261103-meta-18">
 </head>
-<body>
-  <div data-include="/includes/header.html"></div>
+<body class="meta-page">
+  <div data-include="/includes/header.html?v=20261103-network"></div>
 
   <main>
     <section>
-      <div class="markdown" data-md="content.md" aria-live="polite">
-        <h1>meta</h1>
+      <div class="markdown" data-md="content.md?v=20261103-12" aria-live="polite">
       </div>
+      <figure class="fractal-example">
+        <canvas class="fractal-generation" width="120" height="64" role="img" aria-label="A miniature Julia fractal forming as the equation is repeatedly applied to every pixel"></canvas>
+        <div class="fractal-controls">
+          <button class="fractal-replay" type="button">replay</button>
+        </div>
+      </figure>
+      <div class="markdown" data-md="movement.md?v=20261103-14" aria-live="polite"></div>
+      <canvas class="fractal-pixel-zoom" width="1120" height="376" role="img" aria-label="A point on the fractal enlarged to show one pixel moving along a stepped grid path, with fixed tangent t k and normal t k perpendicular arrows"></canvas>
+      <div class="markdown" data-md="timing.md?v=20261103-5" aria-live="polite"></div>
+      <div class="fractal-wave-examples">
+        <div class="fractal-wave-view wave-broad">
+          <canvas class="fractal-displacement" width="48" height="30" role="img" aria-label="One wave moving fractal pixels along broad contours"></canvas>
+          <div class="fractal-wave-label" data-math>$\Delta\mathbf{r}_1(t)$</div>
+        </div>
+        <div class="fractal-wave-view wave-medium">
+          <canvas class="fractal-displacement" width="48" height="30" role="img" aria-label="One wave moving fractal pixels along medium contours"></canvas>
+          <div class="fractal-wave-label" data-math>$\Delta\mathbf{r}_2(t)$</div>
+        </div>
+        <div class="fractal-wave-view wave-fine">
+          <canvas class="fractal-displacement" width="48" height="30" role="img" aria-label="One wave moving fractal pixels along fine contours"></canvas>
+          <div class="fractal-wave-label" data-math>$\Delta\mathbf{r}_3(t)$</div>
+        </div>
+      </div>
+    </section>
+    <section class="meta-graph-explanation">
+      <div class="markdown" data-md="graph.md?v=20261103-3" aria-live="polite"></div>
+      <svg class="hyperbolic-example" viewBox="0 0 400 340" role="group" aria-label="Poincaré disk with three draggable nodes connected by curved geodesics and equally spaced hyperbolic steps">
+        <circle cx="200" cy="170" r="146" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+        <g class="hyperbolic-example-paths" fill="none" stroke="var(--dim)" stroke-width="3"></g>
+        <g class="hyperbolic-example-steps" fill="var(--dim)"></g>
+        <circle class="hyperbolic-endpoint" data-point="p" r="9" fill="var(--bg)" stroke="var(--accent)" stroke-width="3" tabindex="0" role="button" aria-roledescription="draggable point" aria-label="Endpoint p, drag or use arrow keys" aria-description="Inside the disk"></circle>
+        <circle class="hyperbolic-endpoint" data-point="q" r="9" fill="var(--bg)" stroke="var(--accent)" stroke-width="3" tabindex="0" role="button" aria-roledescription="draggable point" aria-label="Endpoint q, drag or use arrow keys" aria-description="Inside the disk"></circle>
+        <circle class="hyperbolic-endpoint" data-point="r" r="9" fill="var(--bg)" stroke="var(--accent)" stroke-width="3" tabindex="0" role="button" aria-roledescription="draggable point" aria-label="Endpoint r, drag or use arrow keys" aria-description="Inside the disk"></circle>
+      </svg>
+      <div class="markdown graph-motion" data-md="graph-motion.md?v=20261103-1" aria-live="polite"></div>
     </section>
   </main>
 
-  <script src="../script.js"></script>
+  <script src="../script.js?v=20261103-1"></script>
+  <script src="motion-example.js?v=20261103-7"></script>
+  <script src="displacement-example.js?v=20261103-20"></script>
+  <script src="hyperbolic-example.js?v=20261103-5"></script>
 </body>
 </html>

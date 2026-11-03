@@ -37,7 +37,7 @@
       type: "paper",
       label: "cycle holonomy",
       year: "2026",
-      href: "https://arxiv.org/abs/2604.19682",
+      href: "https://doi.org/10.1038/s42005-026-02914-y",
       h: 0.36,
       theta: -2.25,
       radius: 15,

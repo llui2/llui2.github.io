@@ -33,7 +33,7 @@ window.PixelWalkers = (function () {
 })();
 
 (function () {
-  if (document.body.classList.contains("home-page")) return;
+  if (!document.body.classList.contains("about-page")) return;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const main = document.querySelector("main");
   if (!main) return;
@@ -127,8 +127,10 @@ window.PixelWalkers = (function () {
   }
 
   function update() {
+    let changed = false;
     for (const walker of walkers) {
       while (elapsed >= walker.nextStep) {
+        changed = true;
         const direction = window.PixelWalkers.direction(0, 0, 0,
           walker.previous, walker.run,
           (dx, dy) => walker.x + dx >= 0 && walker.x + dx < columns &&
@@ -146,6 +148,7 @@ window.PixelWalkers = (function () {
         walker.trail.splice(0, walker.trail.length - MAX_TRAIL_POINTS);
       }
     }
+    return changed;
   }
 
   function tick(now) {
@@ -155,7 +158,8 @@ window.PixelWalkers = (function () {
     if (lastFrame && now - lastFrame < interval) { start(); return; }
     elapsed += lastFrame ? Math.min(0.2, (now - lastFrame) / 1000) : interval / 1000;
     lastFrame = now;
-    update(); draw(); start();
+    if (update()) draw();
+    start();
   }
   function start() {
     if (ready && !frameRequest && !document.hidden && !reducedMotion.matches) {

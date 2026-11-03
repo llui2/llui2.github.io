@@ -1,5 +1,3 @@
-# journal articles
-
 [**Indirect influence on network diffusion**](https://doi.org/10.1038/s42005-025-02403-8), *Communications Physics*, Volume 8, Article 494, December 2025.
 
 [[arXiv:2505.05931](https://arxiv.org/abs/2505.05931)] [[llui2/indirect-diffusion](https://github.com/llui2/indirect-diffusion)]

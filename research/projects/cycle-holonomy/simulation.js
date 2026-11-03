@@ -432,7 +432,7 @@
       plotContext.moveTo(bounds.left - 3, y);
       plotContext.lineTo(bounds.left, y);
       plotContext.strokeStyle = foreground;
-      plotContext.lineWidth = 1;
+      plotContext.lineWidth = 1.5;
       plotContext.stroke();
       plotContext.fillStyle = dim;
       plotContext.textAlign = "right";
@@ -444,7 +444,7 @@
     plotContext.lineTo(bounds.left, bounds.bottom);
     plotContext.lineTo(bounds.right, bounds.bottom);
     plotContext.strokeStyle = foreground;
-    plotContext.lineWidth = 1;
+    plotContext.lineWidth = 1.5;
     plotContext.stroke();
 
     // Include the current state so the line reaches the live animation frame.
